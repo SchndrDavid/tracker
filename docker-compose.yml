@@ -1,0 +1,34 @@
+name: daylog
+
+services:
+  daylog:
+    build: .
+    image: daylog
+    container_name: daylog
+    restart: unless-stopped
+    user: "${DAYLOG_UID:-1000}:${DAYLOG_GID:-1000}"
+    ports:
+      - "${DAYLOG_PORT:-8107}:8000"
+    volumes:
+      - ./data:/data
+    environment:
+      - DAYLOG_DB=/data/daylog.db
+      - JELLYFIN_URL=${JELLYFIN_URL:-}
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY:-}
+      - GYMTRACK_URL=${GYMTRACK_URL:-}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import os,sys,urllib.request; sys.exit(0 if urllib.request.urlopen("http://127.0.0.1:%s/api/health" % os.environ.get("PORT", "8000"), timeout=2).status == 200 else 1)
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+

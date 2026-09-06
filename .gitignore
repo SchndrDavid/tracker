@@ -1,0 +1,14 @@
+data/*
+!data/.gitkeep
+.env
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.DS_Store
+FOREMAN-REPO-TEMPLATE.txt
+

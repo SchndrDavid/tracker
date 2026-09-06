@@ -1,0 +1,2583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>DayLog — Retrospective Diary</title>
+  
+  <!-- Fonts: Archivo (Headings) & IBM Plex Sans (Text) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #07090e;
+      --bg-surface: rgba(18, 24, 38, 0.7);
+      --bg-surface-elevated: rgba(28, 36, 56, 0.75);
+      --bg-card: rgba(255, 255, 255, 0.035);
+      --border-subtle: rgba(255, 255, 255, 0.09);
+      --border-focus: rgba(255, 255, 255, 0.25);
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --tag-work: #38bdf8;
+      --tag-gaming: #a855f7;
+      --tag-chillin: #34d399;
+      --tag-study: #fbbf24;
+      --tag-gym: #f43f5e;
+      --tag-running: #06b6d4;
+      --tag-unlogged: #64748b;
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-pill: 9999px;
+
+      --font-heading: 'Archivo', sans-serif;
+      --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+
+      --timeline-hour-h: 52px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.08) 0%, transparent 60%),
+        radial-gradient(circle at 100% 80%, rgba(168, 85, 247, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 0% 100%, rgba(52, 211, 153, 0.04) 0%, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 60px;
+    }
+
+    h1, h2, h3, h4, .brand-title {
+      font-family: var(--font-heading);
+      letter-spacing: -0.02em;
+    }
+
+    /* Top Navigation Bar */
+    .navbar {
+      width: 100%;
+      max-width: 1080px;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(7, 9, 14, 0.75);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, var(--tag-work), var(--tag-gaming));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+      color: #fff;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .nav-tab {
+      padding: 8px 18px;
+      border-radius: var(--radius-pill);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s ease;
+      border: none;
+      background: transparent;
+    }
+
+    .nav-tab.active {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .main-container {
+      width: 100%;
+      max-width: 1080px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Glass Panels */
+    .glass-panel {
+      background: var(--bg-surface);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Day View Header */
+    .day-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .date-nav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-icon:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--border-focus);
+    }
+
+    .current-date-title {
+      font-size: 20px;
+      font-weight: 700;
+      min-width: 150px;
+      text-align: center;
+    }
+
+    .btn-pill {
+      padding: 7px 14px;
+      border-radius: var(--radius-pill);
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-pill:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: var(--border-focus);
+    }
+
+    /* Day Boundary / Sleep Controls */
+    .day-meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-subtle);
+      margin-top: 14px;
+    }
+
+    .meta-input-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .meta-input-group input[type="time"] {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      padding: 6px 10px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .meta-input-group input[type="time"]:focus {
+      border-color: var(--tag-work);
+    }
+
+    .unlogged-badge {
+      margin-left: auto;
+      background: rgba(100, 116, 139, 0.15);
+      border: 1px solid rgba(100, 116, 139, 0.35);
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+
+    .unlogged-badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--tag-unlogged);
+      box-shadow: 0 0 6px var(--tag-unlogged);
+    }
+
+    /* Needs Time Alert Banner */
+    .needs-time-banner {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+      color: #fef3c7;
+      animation: pulseAlert 3s infinite;
+    }
+
+    @keyframes pulseAlert {
+      0%, 100% { border-color: rgba(245, 158, 11, 0.3); }
+      50% { border-color: rgba(245, 158, 11, 0.6); }
+    }
+
+    .needs-time-btn {
+      background: #f59e0b;
+      color: #000;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    /* 24h Vertical Timeline */
+    .timeline-wrapper {
+      position: relative;
+      margin-top: 10px;
+      display: flex;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .timeline-hour-axis {
+      width: 54px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hour-marker {
+      height: var(--timeline-hour-h);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-dim);
+      display: flex;
+      align-items: flex-start;
+      padding-top: 0px;
+    }
+
+    .timeline-canvas-container {
+      flex: 1;
+      position: relative;
+      height: calc(24 * var(--timeline-hour-h));
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      touch-action: pan-y;
+    }
+
+    /* Background hour horizontal gridlines */
+    .hour-gridline {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.05);
+      pointer-events: none;
+    }
+
+    .hour-gridline.major {
+      background: rgba(255, 255, 255, 0.09);
+    }
+
+    /* Sleep overlay */
+    .sleep-overlay {
+      position: absolute;
+      left: 0;
+      right: 0;
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(0, 0, 0, 0.4),
+        rgba(0, 0, 0, 0.4) 10px,
+        rgba(15, 23, 42, 0.6) 10px,
+        rgba(15, 23, 42, 0.6) 20px
+      );
+      backdrop-filter: grayscale(0.7);
+      -webkit-backdrop-filter: grayscale(0.7);
+      border-top: 1px dashed rgba(255, 255, 255, 0.12);
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.12);
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sleep-overlay-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.35);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      pointer-events: none;
+    }
+
+    /* Drag selection indicator */
+    .drag-selection {
+      position: absolute;
+      left: 0;
+      right: 0;
+      background: rgba(56, 189, 248, 0.2);
+      border: 1px solid var(--tag-work);
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 15;
+      display: none;
+    }
+
+    .drag-selection-label {
+      position: absolute;
+      top: 4px;
+      left: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Timeline Blocks */
+    .timeline-block {
+      position: absolute;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      z-index: 20;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-left: 3px solid transparent;
+    }
+
+    .timeline-block:hover {
+      transform: scale(1.01);
+      z-index: 25;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+    }
+
+    .timeline-block.needs-time {
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(244, 63, 94, 0.25),
+        rgba(244, 63, 94, 0.25) 8px,
+        rgba(244, 63, 94, 0.45) 8px,
+        rgba(244, 63, 94, 0.45) 16px
+      ) !important;
+      border: 1px dashed var(--tag-gym);
+      animation: pulseBorder 2s infinite;
+    }
+
+    @keyframes pulseBorder {
+      0%, 100% { border-color: rgba(244, 63, 94, 0.8); }
+      50% { border-color: rgba(255, 255, 255, 0.6); }
+    }
+
+    .block-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      overflow: hidden;
+    }
+
+    .block-tag-badge {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .block-time-range {
+      font-size: 11px;
+      font-weight: 500;
+      opacity: 0.85;
+      white-space: nowrap;
+    }
+
+    .block-label {
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    /* Day Free Note */
+    .note-section {
+      margin-top: 20px;
+    }
+
+    .note-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .note-header h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .autosave-status {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .note-textarea {
+      width: 100%;
+      min-height: 80px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.5;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .note-textarea:focus {
+      border-color: var(--border-focus);
+    }
+
+    /* Watched Section */
+    .watched-section {
+      margin-top: 24px;
+    }
+
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .watched-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .watched-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: all 0.15s ease;
+    }
+
+    .watched-card:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: var(--border-focus);
+    }
+
+    .watched-card-info {
+      overflow: hidden;
+    }
+
+    .watched-kind-tag {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: var(--radius-pill);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      display: inline-block;
+      margin-bottom: 4px;
+    }
+
+    .watched-title {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .watched-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .watched-delete-btn {
+      color: var(--text-dim);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: var(--radius-sm);
+      transition: color 0.15s;
+    }
+
+    .watched-delete-btn:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    /* Stats Screen Styles */
+    .stats-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .stats-switcher {
+      display: flex;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius-pill);
+      padding: 3px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .stats-switch-btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .stats-switch-btn.active {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    .stats-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .stat-card-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-card-val {
+      font-family: var(--font-heading);
+      font-size: 24px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .stat-card-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    /* Tag Bars List */
+    .tag-bars-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .tag-bar-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .tag-bar-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .tag-name-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+
+    .tag-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .tag-progress-track {
+      width: 100%;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius-pill);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .tag-progress-fill {
+      height: 100%;
+      border-radius: var(--radius-pill);
+      transition: width 0.4s ease;
+    }
+
+    /* Daily Stacked Chart */
+    .chart-container {
+      margin-top: 24px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+
+    .daily-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      height: 200px;
+      min-width: 400px;
+      padding-top: 20px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .chart-day-col {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .chart-day-col:hover .chart-bar-stack {
+      transform: scaleY(1.02);
+      filter: brightness(1.15);
+    }
+
+    .chart-bar-stack {
+      width: 100%;
+      max-width: 32px;
+      display: flex;
+      flex-direction: column-reverse; /* Bottom to top */
+      border-radius: 4px 4px 0 0;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.04);
+      transition: transform 0.15s ease;
+    }
+
+    .chart-segment {
+      width: 100%;
+      transition: height 0.3s ease;
+    }
+
+    .chart-day-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 6px;
+      white-space: nowrap;
+    }
+
+    /* Watched Stats List */
+    .watched-stats-wrap {
+      margin-top: 24px;
+    }
+
+    .series-group {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      margin-bottom: 10px;
+    }
+
+    .series-group-title {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .series-episodes-list {
+      margin-top: 8px;
+      padding-left: 14px;
+      border-left: 2px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Modals */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 440px;
+      background: #121826;
+      border: 1px solid var(--border-focus);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .form-control {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: #fff;
+      padding: 10px 12px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .form-control:focus {
+      border-color: var(--tag-work);
+    }
+
+    /* Tag Selection Buttons (Colored chips, NOT dropdown) */
+    .tag-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .tag-btn {
+      padding: 10px 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.04);
+      color: #fff;
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .tag-btn.active {
+      box-shadow: 0 0 12px currentColor;
+      border-color: #fff;
+    }
+
+    .modal-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #f87171;
+      padding: 9px 16px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      margin-right: auto;
+    }
+
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.35);
+    }
+
+    .btn-primary {
+      background: #38bdf8;
+      border: none;
+      color: #000;
+      padding: 9px 18px;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-subtle);
+      color: #fff;
+      padding: 9px 16px;
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* Jellyfin search results list */
+    .jellyfin-results {
+      max-height: 280px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .jf-item-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .jf-item-card:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .jf-thumb {
+      width: 36px;
+      height: 50px;
+      background: #1e293b;
+      border-radius: 4px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .jf-details {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .jf-title {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .jf-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .jf-nested-list {
+      margin-left: 20px;
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* Toast Notification */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      background: rgba(30, 41, 59, 0.95);
+      border: 1px solid var(--border-focus);
+      backdrop-filter: blur(12px);
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      color: #fff;
+      font-size: 13px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      animation: slideToast 0.2s ease;
+    }
+
+    @keyframes slideToast {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 640px) {
+      .navbar {
+        padding: 12px 16px;
+      }
+      .main-container {
+        padding: 12px;
+        gap: 16px;
+      }
+      .glass-panel {
+        padding: 14px;
+      }
+      .day-meta-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .unlogged-badge {
+        margin-left: 0;
+        width: 100%;
+        justify-content: center;
+      }
+      .tag-picker-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-logo">D</div>
+      <div class="brand-title">DayLog</div>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" id="tab-day-btn" onclick="switchView('day')">Day</button>
+      <button class="nav-tab" id="tab-stats-btn" onclick="switchView('stats')">Statistics</button>
+    </div>
+  </header>
+
+  <main class="main-container">
+
+    <!-- ================================================================= -->
+    <!-- SCREEN 1: DAY VIEW -->
+    <!-- ================================================================= -->
+    <section id="view-day" class="view-screen">
+      
+      <!-- Day Top Controls -->
+      <div class="glass-panel">
+        <div class="day-header">
+          <div class="date-nav">
+            <button class="btn-icon" onclick="changeDate(-1)" title="Previous Day">←</button>
+            <div class="current-date-title" id="current-date-display">Today</div>
+            <button class="btn-icon" onclick="changeDate(1)" title="Next Day">→</button>
+            <button class="btn-pill" onclick="goToToday()">Today</button>
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-pill" onclick="openAddBlockModal()">+ Add Block</button>
+            <button class="btn-pill" onclick="triggerGymTrackSync()" title="Sync workouts from GymTrack">⚡ Sync GymTrack</button>
+          </div>
+        </div>
+
+        <!-- Sleep / Day Boundary Controls & Unlogged display -->
+        <div class="day-meta-row">
+          <div class="meta-input-group">
+            <label for="wake-time-input">Wake up:</label>
+            <input type="time" id="wake-time-input" onchange="onSleepWakeChanged()">
+          </div>
+
+          <div class="meta-input-group">
+            <label for="sleep-time-input">Went to sleep:</label>
+            <input type="time" id="sleep-time-input" onchange="onSleepWakeChanged()">
+          </div>
+
+          <div class="unlogged-badge" id="unlogged-badge" title="Time in awake hours without recorded activity">
+            <span class="dot"></span>
+            <span id="unlogged-text">Unlogged: 0h 0m</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pending 'needs_time' GymTrack Alert Banner -->
+      <div id="needs-time-container" style="margin-top: 14px; display: none;"></div>
+
+      <!-- 24-Hour Vertical Timeline -->
+      <div class="glass-panel" style="margin-top: 14px;">
+        <div class="timeline-wrapper">
+          <!-- Hour labels axis (00:00 to 24:00) -->
+          <div class="timeline-hour-axis" id="timeline-axis"></div>
+
+          <!-- Timeline interactive area -->
+          <div class="timeline-canvas-container" id="timeline-canvas">
+            <!-- Background Hour Lines -->
+            <div id="timeline-gridlines"></div>
+
+            <!-- Sleep zones (dimmed out) -->
+            <div id="sleep-zones"></div>
+
+            <!-- Drag selection box -->
+            <div id="drag-selection" class="drag-selection">
+              <span id="drag-selection-label" class="drag-selection-label"></span>
+            </div>
+
+            <!-- Rendered Activity Blocks -->
+            <div id="timeline-blocks"></div>
+          </div>
+        </div>
+
+        <!-- Day Note with debounced autosave -->
+        <div class="note-section">
+          <div class="note-header">
+            <h3>Day Note</h3>
+            <span class="autosave-status" id="note-save-status">All changes saved</span>
+          </div>
+          <textarea id="day-note" class="note-textarea" placeholder="Reflections, thoughts, or events of the day..." oninput="onNoteInput()"></textarea>
+        </div>
+      </div>
+
+      <!-- Watched Section (Completely independent from timeline) -->
+      <div class="glass-panel watched-section">
+        <div class="section-title-row">
+          <div>
+            <h3>Watched Today</h3>
+            <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">
+              Titles logged for the day (does not alter timeline blocks).
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-pill" onclick="openJellyfinModal()">+ Add from Jellyfin</button>
+            <button class="btn-pill" onclick="openManualWatchedModal()">+ Add Manually</button>
+          </div>
+        </div>
+
+        <div class="watched-list" id="watched-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SCREEN 2: STATISTICS VIEW -->
+    <!-- ================================================================= -->
+    <section id="view-stats" class="view-screen" style="display: none;">
+      
+      <!-- Stats Period Nav -->
+      <div class="glass-panel">
+        <div class="stats-header">
+          <div class="date-nav">
+            <button class="btn-icon" onclick="changeStatsOffset(-1)">←</button>
+            <div class="current-date-title" id="stats-period-display">This Week</div>
+            <button class="btn-icon" onclick="changeStatsOffset(1)">→</button>
+          </div>
+
+          <div class="stats-switcher">
+            <button class="stats-switch-btn active" id="btn-period-week" onclick="setStatsPeriod('week')">Week</button>
+            <button class="stats-switch-btn" id="btn-period-month" onclick="setStatsPeriod('month')">Month</button>
+          </div>
+        </div>
+
+        <!-- Top Stat Cards -->
+        <div class="stats-summary-grid">
+          <div class="stat-card">
+            <span class="stat-card-title">Awake Time</span>
+            <span class="stat-card-val" id="stat-total-awake">0h</span>
+            <span class="stat-card-sub" id="stat-awake-sub">Denominator for stats</span>
+          </div>
+
+          <div class="stat-card">
+            <span class="stat-card-title">Avg Sleep</span>
+            <span class="stat-card-val" id="stat-avg-sleep">--</span>
+            <span class="stat-card-sub" id="stat-sleep-sub">Per recorded night</span>
+          </div>
+
+          <div class="stat-card">
+            <span class="stat-card-title">Avg Wake Up</span>
+            <span class="stat-card-val" id="stat-avg-wake">--</span>
+            <span class="stat-card-sub">Average morning time</span>
+          </div>
+
+          <div class="stat-card">
+            <span class="stat-card-title">Empty Days</span>
+            <span class="stat-card-val" id="stat-empty-days">0</span>
+            <span class="stat-card-sub">Days without any logged blocks</span>
+          </div>
+        </div>
+
+        <!-- Daily Stacked Bar Chart -->
+        <div style="margin-top: 24px;">
+          <h3 style="font-size: 15px;">Daily Activity Breakdown</h3>
+          <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">Stacked tag duration across each day of the period.</p>
+          <div class="chart-container">
+            <div class="daily-chart" id="daily-chart">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Tag Breakdown List (With prominent unlogged row) -->
+        <div style="margin-top: 28px;">
+          <h3 style="font-size: 15px;">Time Distribution by Tag</h3>
+          <div class="tag-bars-list" id="tag-bars-list">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+
+        <!-- Watched in Period Overview -->
+        <div class="watched-stats-wrap">
+          <div class="section-title-row">
+            <div>
+              <h3 style="font-size: 15px;">Watched in this Period</h3>
+              <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">Movies and episodes grouped by series (independent of time totals).</p>
+            </div>
+            <div style="display: flex; gap: 10px; font-size: 13px; color: var(--text-muted);" id="watched-totals-badge">
+              <!-- Counts -->
+            </div>
+          </div>
+          <div id="watched-stats-list">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ================================================================= -->
+  <!-- MODALS -->
+  <!-- ================================================================= -->
+
+  <!-- Block Create / Edit Modal -->
+  <div id="block-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <h3 class="modal-title" id="block-modal-title">Activity Block</h3>
+
+      <div class="form-group">
+        <label class="form-label">Tag</label>
+        <div class="tag-picker-grid" id="modal-tag-picker">
+          <!-- Tag chips created by JS -->
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="block-label-input">Label / Description</label>
+        <input type="text" id="block-label-input" class="form-control" placeholder="What were you doing?">
+      </div>
+
+      <div style="display: flex; gap: 12px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="block-start-time">Start Time</label>
+          <input type="time" id="block-start-time" class="form-control">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="block-end-time">End Time</label>
+          <input type="time" id="block-end-time" class="form-control">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="block-delete-btn" class="btn-danger" onclick="deleteCurrentBlock()" style="display: none;">Delete</button>
+        <button class="btn-secondary" onclick="closeBlockModal()">Cancel</button>
+        <button class="btn-primary" onclick="saveBlockModal()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Jellyfin Search Modal -->
+  <div id="jellyfin-modal" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 500px;">
+      <h3 class="modal-title">Add from Jellyfin</h3>
+      <div class="form-group">
+        <input type="text" id="jf-search-input" class="form-control" placeholder="Search movie or TV series..." oninput="onJellyfinSearchInput()">
+      </div>
+
+      <div id="jf-status-msg" style="font-size: 13px; color: var(--text-dim); display: none;"></div>
+
+      <div class="jellyfin-results" id="jf-results-list"></div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="openManualWatchedModal()">Add manually instead</button>
+        <button class="btn-secondary" onclick="closeJellyfinModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual Watched Modal -->
+  <div id="manual-watched-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <h3 class="modal-title">Add Watched Title</h3>
+      
+      <div class="form-group">
+        <label class="form-label" for="manual-watched-kind">Kind</label>
+        <select id="manual-watched-kind" class="form-control" onchange="onManualKindChange()">
+          <option value="movie">Movie</option>
+          <option value="episode">Episode</option>
+          <option value="other">Other (YouTube, stream, etc.)</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="manual-series-group" style="display: none;">
+        <label class="form-label" for="manual-watched-series">Series Title</label>
+        <input type="text" id="manual-watched-series" class="form-control" placeholder="e.g. Breaking Bad">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="manual-watched-title">Title</label>
+        <input type="text" id="manual-watched-title" class="form-control" placeholder="Movie title or episode name">
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeManualWatchedModal()">Cancel</button>
+        <button class="btn-primary" onclick="saveManualWatched()">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notifications container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- ================================================================= -->
+  <!-- JAVASCRIPT APPLICATION LOGIC -->
+  <!-- ================================================================= -->
+  <script>
+    // Subpath handling: derive base path dynamically from window.location.pathname
+    const BASE_PATH = window.location.pathname.replace(/\/+$/, '');
+
+    // State
+    const STATE = {
+      currentDate: getTodayString(),
+      view: 'day',             // 'day' | 'stats'
+      tags: ["Work", "Gaming", "Chillin", "Study", "Gym", "Running"],
+      colors: {
+        "Work": "#38bdf8",
+        "Gaming": "#a855f7",
+        "Chillin": "#34d399",
+        "Study": "#fbbf24",
+        "Gym": "#f43f5e",
+        "Running": "#06b6d4"
+      },
+      dayData: null,
+      statsPeriod: 'week',     // 'week' | 'month'
+      statsOffset: 0,
+      activeEditingBlockId: null,
+      modalSelectedTag: "Work",
+      needsTimeBlocks: [],
+      noteSaveTimeout: null,
+      jfSearchTimeout: null
+    };
+
+    // -------------------------------------------------------------------
+    // Utilities
+    // -------------------------------------------------------------------
+    function getTodayString() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function formatMinutes(min) {
+      const h = Math.floor(min / 60);
+      const m = min % 60;
+      return `${h}h ${m}m`;
+    }
+
+    function minToTimeStr(min) {
+      const h = Math.floor(min / 60) % 24;
+      const m = min % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
+    function timeStrToMin(str) {
+      if (!str) return null;
+      const [h, m] = str.split(':').map(Number);
+      return h * 60 + m;
+    }
+
+    function showToast(msg) {
+      const c = document.getElementById('toast-container');
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.innerText = msg;
+      c.appendChild(t);
+      setTimeout(() => {
+        t.style.opacity = '0';
+        t.style.transition = 'opacity 0.3s';
+        setTimeout(() => t.remove(), 300);
+      }, 3000);
+    }
+
+    // -------------------------------------------------------------------
+    // API Communication (Strictly with BASE_PATH prefix)
+    // -------------------------------------------------------------------
+    async function apiRequest(endpoint, options = {}) {
+      const url = `${BASE_PATH}${endpoint}`;
+      try {
+        const res = await fetch(url, options);
+        if (!res.ok) {
+          let errDetail = `HTTP ${res.status}`;
+          try {
+            const data = await res.json();
+            if (data.detail) errDetail = data.detail;
+          } catch(e) {}
+          throw new Error(errDetail);
+        }
+        return await res.json();
+      } catch (err) {
+        console.error(`API error on ${endpoint}:`, err);
+        throw err;
+      }
+    }
+
+    // -------------------------------------------------------------------
+    // View Switching
+    // -------------------------------------------------------------------
+    function switchView(viewName) {
+      STATE.view = viewName;
+      document.getElementById('view-day').style.display = viewName === 'day' ? 'block' : 'none';
+      document.getElementById('view-stats').style.display = viewName === 'stats' ? 'block' : 'none';
+      document.getElementById('tab-day-btn').classList.toggle('active', viewName === 'day');
+      document.getElementById('tab-stats-btn').classList.toggle('active', viewName === 'stats');
+
+      if (viewName === 'day') {
+        loadDay(STATE.currentDate);
+      } else {
+        loadStats();
+      }
+    }
+
+    // -------------------------------------------------------------------
+    // Day View Loading & Rendering
+    // -------------------------------------------------------------------
+    async function loadDay(dateStr) {
+      STATE.currentDate = dateStr;
+      document.getElementById('current-date-display').innerText = formatDateDisplay(dateStr);
+
+      try {
+        const data = await apiRequest(`/api/day/${dateStr}`);
+        STATE.dayData = data;
+
+        // Populate sleep/wake inputs
+        document.getElementById('wake-time-input').value = data.wake_time !== null ? minToTimeStr(data.wake_time) : '';
+        document.getElementById('sleep-time-input').value = data.sleep_time !== null ? minToTimeStr(data.sleep_time) : '';
+        
+        // Populate note
+        document.getElementById('day-note').value = data.note || '';
+        document.getElementById('note-save-status').innerText = 'All changes saved';
+
+        // Unlogged counter
+        document.getElementById('unlogged-text').innerText = `Unlogged: ${formatMinutes(data.unlogged_time)}`;
+
+        // Render timeline
+        renderTimeline(data);
+
+        // Load watched titles
+        loadWatched(dateStr);
+
+        // Check if day has gymtrack blocks; if none, attempt silent auto-sync
+        const hasGymTrack = data.blocks.some(b => b.source === 'gymtrack');
+        if (!hasGymTrack) {
+          silentGymTrackSync(dateStr);
+        }
+      } catch (err) {
+        showToast(`Failed to load day: ${err.message}`);
+      }
+    }
+
+    function formatDateDisplay(dStr) {
+      const today = getTodayString();
+      if (dStr === today) return 'Today';
+      const d = new Date(dStr + 'T00:00:00');
+      return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+
+    function changeDate(deltaDays) {
+      const d = new Date(STATE.currentDate + 'T00:00:00');
+      d.setDate(d.getDate() + deltaDays);
+      const yr = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      const da = String(d.getDate()).padStart(2, '0');
+      loadDay(`${yr}-${mo}-${da}`);
+    }
+
+    function goToToday() {
+      loadDay(getTodayString());
+    }
+
+    // -------------------------------------------------------------------
+    // Sleep & Awake Updates
+    // -------------------------------------------------------------------
+    async function onSleepWakeChanged() {
+      const wakeVal = document.getElementById('wake-time-input').value;
+      const sleepVal = document.getElementById('sleep-time-input').value;
+
+      const wakeMin = wakeVal ? timeStrToMin(wakeVal) : null;
+      const sleepMin = sleepVal ? timeStrToMin(sleepVal) : null;
+      const note = document.getElementById('day-note').value;
+
+      try {
+        await apiRequest(`/api/day/${STATE.currentDate}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wake_time: wakeMin, sleep_time: sleepMin, note })
+        });
+        loadDay(STATE.currentDate);
+      } catch (err) {
+        showToast(`Error updating sleep times: ${err.message}`);
+      }
+    }
+
+    // -------------------------------------------------------------------
+    // Note Autosave (Debounced ~1s)
+    // -------------------------------------------------------------------
+    function onNoteInput() {
+      document.getElementById('note-save-status').innerText = 'Saving...';
+      clearTimeout(STATE.noteSaveTimeout);
+      STATE.noteSaveTimeout = setTimeout(async () => {
+        const wakeVal = document.getElementById('wake-time-input').value;
+        const sleepVal = document.getElementById('sleep-time-input').value;
+        const note = document.getElementById('day-note').value;
+
+        try {
+          await apiRequest(`/api/day/${STATE.currentDate}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              wake_time: wakeVal ? timeStrToMin(wakeVal) : null,
+              sleep_time: sleepVal ? timeStrToMin(sleepVal) : null,
+              note
+            })
+          });
+          document.getElementById('note-save-status').innerText = 'All changes saved';
+        } catch (err) {
+          document.getElementById('note-save-status').innerText = 'Failed to save';
+        }
+      }, 1000);
+    }
+
+    // -------------------------------------------------------------------
+    // Timeline Rendering & Geometry
+    // -------------------------------------------------------------------
+    const PX_PER_MINUTE = 52 / 60; // 52px per 60min
+
+    function initTimelineAxis() {
+      const axis = document.getElementById('timeline-axis');
+      const grid = document.getElementById('timeline-gridlines');
+      axis.innerHTML = '';
+      grid.innerHTML = '';
+
+      for (let h = 0; h <= 24; h++) {
+        const label = document.createElement('div');
+        label.className = 'hour-marker';
+        label.innerText = `${String(h % 24).padStart(2, '0')}:00`;
+        axis.appendChild(label);
+
+        const line = document.createElement('div');
+        line.className = `hour-gridline ${h % 4 === 0 ? 'major' : ''}`;
+        line.style.top = `${h * 52}px`;
+        grid.appendChild(line);
+      }
+    }
+
+    function renderTimeline(dayData) {
+      const sleepZones = document.getElementById('sleep-zones');
+      const blocksContainer = document.getElementById('timeline-blocks');
+      const needsTimeContainer = document.getElementById('needs-time-container');
+
+      sleepZones.innerHTML = '';
+      blocksContainer.innerHTML = '';
+      needsTimeContainer.innerHTML = '';
+      needsTimeContainer.style.display = 'none';
+
+      // 1. Render Sleep Dimmed Zones
+      const wake = dayData.wake_time;
+      const sleep = dayData.sleep_time;
+
+      if (wake !== null && sleep !== null) {
+        if (sleep >= wake) {
+          // Pre-wake zone: [0, wake]
+          if (wake > 0) {
+            const z1 = document.createElement('div');
+            z1.className = 'sleep-overlay';
+            z1.style.top = '0px';
+            z1.style.height = `${wake * PX_PER_MINUTE}px`;
+            z1.innerHTML = '<span class="sleep-overlay-label">Asleep</span>';
+            sleepZones.appendChild(z1);
+          }
+          // Post-sleep zone: [sleep, 1440]
+          if (sleep < 1440) {
+            const z2 = document.createElement('div');
+            z2.className = 'sleep-overlay';
+            z2.style.top = `${sleep * PX_PER_MINUTE}px`;
+            z2.style.height = `${(1440 - sleep) * PX_PER_MINUTE}px`;
+            z2.innerHTML = '<span class="sleep-overlay-label">Asleep</span>';
+            sleepZones.appendChild(z2);
+          }
+        } else {
+          // Slept past midnight (e.g. wake 480 [08:00], sleep 90 [01:30])
+          // On this calendar day, pre-wake interval [0, wake] was asleep!
+          if (wake > 0) {
+            const z = document.createElement('div');
+            z.className = 'sleep-overlay';
+            z.style.top = '0px';
+            z.style.height = `${wake * PX_PER_MINUTE}px`;
+            z.innerHTML = '<span class="sleep-overlay-label">Asleep</span>';
+            sleepZones.appendChild(z);
+          }
+        }
+      }
+
+      // 2. Separate normal blocks from 'needs_time' gymtrack blocks
+      const normalBlocks = [];
+      const needsTimeBlocks = [];
+
+      for (const b of dayData.blocks) {
+        if (b.meta && b.meta.needs_time) {
+          needsTimeBlocks.push(b);
+        } else {
+          normalBlocks.push(b);
+        }
+      }
+
+      // Render needs_time banner if any exist
+      if (needsTimeBlocks.length > 0) {
+        needsTimeContainer.style.display = 'block';
+        needsTimeContainer.innerHTML = '';
+        for (const b of needsTimeBlocks) {
+          const banner = document.createElement('div');
+          banner.className = 'needs-time-banner';
+          const durMin = Math.round((b.meta.seconds || (b.end_min - b.start_min) * 60) / 60);
+          banner.innerHTML = `
+            <span>⚡ <strong>GymTrack workout needs time:</strong> ${escapeHtml(b.label || 'Workout')} (${durMin} min)</span>
+            <button class="needs-time-btn" onclick="openEditBlockModal(${b.id})">Set Time</button>
+          `;
+          needsTimeContainer.appendChild(banner);
+        }
+      }
+
+      // 3. Layout overlapping blocks side-by-side
+      const layoutMap = computeBlockColumns(normalBlocks);
+
+      for (const b of normalBlocks) {
+        const layout = layoutMap.get(b.id) || { colIndex: 0, totalCols: 1 };
+        const blockEl = document.createElement('div');
+        blockEl.className = 'timeline-block';
+        
+        const topPx = b.start_min * PX_PER_MINUTE;
+        const heightPx = Math.max(22, (b.end_min - b.start_min) * PX_PER_MINUTE);
+        const colWidthPct = 100 / layout.totalCols;
+        const leftPct = layout.colIndex * colWidthPct;
+
+        const tagColor = STATE.colors[b.tag] || '#38bdf8';
+        blockEl.style.top = `${topPx}px`;
+        blockEl.style.height = `${heightPx}px`;
+        blockEl.style.width = `calc(${colWidthPct}% - 6px)`;
+        blockEl.style.left = `calc(${leftPct}% + 3px)`;
+        blockEl.style.background = `${tagColor}24`; // 14% opacity fill
+        blockEl.style.border = `1px solid ${tagColor}66`;
+        blockEl.style.borderLeft = `4px solid ${tagColor}`;
+
+        blockEl.innerHTML = `
+          <div class="block-header">
+            <span class="block-tag-badge" style="color: ${tagColor}">${escapeHtml(b.tag)}</span>
+            <span class="block-time-range">${minToTimeStr(b.start_min)}–${minToTimeStr(b.end_min)}</span>
+          </div>
+          ${b.label ? `<div class="block-label">${escapeHtml(b.label)}</div>` : ''}
+        `;
+
+        blockEl.onclick = (e) => {
+          e.stopPropagation();
+          openEditBlockModal(b.id);
+        };
+
+        blocksContainer.appendChild(blockEl);
+      }
+    }
+
+    function computeBlockColumns(blocks) {
+      const sorted = [...blocks].sort((a, b) => a.start_min - b.start_min || (b.end_min - b.start_min) - (a.end_min - a.start_min));
+      const clusters = [];
+      let currentCluster = [];
+      let clusterEnd = -1;
+
+      for (const b of sorted) {
+        if (currentCluster.length === 0 || b.start_min < clusterEnd) {
+          currentCluster.push(b);
+          clusterEnd = Math.max(clusterEnd, b.end_min);
+        } else {
+          clusters.push(currentCluster);
+          currentCluster = [b];
+          clusterEnd = b.end_min;
+        }
+      }
+      if (currentCluster.length > 0) clusters.push(currentCluster);
+
+      const layoutMap = new Map();
+      for (const cluster of clusters) {
+        const columns = [];
+        for (const b of cluster) {
+          let placed = false;
+          for (let i = 0; i < columns.length; i++) {
+            const lastInCol = columns[i][columns[i].length - 1];
+            if (lastInCol.end_min <= b.start_min) {
+              columns[i].push(b);
+              layoutMap.set(b.id, { colIndex: i, totalCols: 1 });
+              placed = true;
+              break;
+            }
+          }
+          if (!placed) {
+            columns.push([b]);
+            layoutMap.set(b.id, { colIndex: columns.length - 1, totalCols: 1 });
+          }
+        }
+        const totalCols = columns.length;
+        for (const b of cluster) {
+          layoutMap.get(b.id).totalCols = totalCols;
+        }
+      }
+      return layoutMap;
+    }
+
+    // -------------------------------------------------------------------
+    // Timeline Interactive Drag Selection (Mouse & Touch)
+    // -------------------------------------------------------------------
+    let isDragging = false;
+    let dragStartMin = 0;
+    let dragCurrentMin = 0;
+
+    function initTimelineDrag() {
+      const canvas = document.getElementById('timeline-canvas');
+      const selBox = document.getElementById('drag-selection');
+      const selLabel = document.getElementById('drag-selection-label');
+
+      function getCanvasMinutes(clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const y = Math.max(0, Math.min(clientY - rect.top, rect.height));
+        const minRaw = y / PX_PER_MINUTE;
+        // Snap to 15 minutes
+        return Math.min(1440, Math.max(0, Math.round(minRaw / 15) * 15));
+      }
+
+      function onStart(clientY) {
+        isDragging = true;
+        dragStartMin = getCanvasMinutes(clientY);
+        dragCurrentMin = dragStartMin;
+        updateDragBox();
+      }
+
+      function onMove(clientY) {
+        if (!isDragging) return;
+        dragCurrentMin = getCanvasMinutes(clientY);
+        updateDragBox();
+      }
+
+      function onEnd() {
+        if (!isDragging) return;
+        isDragging = false;
+        selBox.style.display = 'none';
+
+        const s = Math.min(dragStartMin, dragCurrentMin);
+        const e = Math.max(dragStartMin, dragCurrentMin);
+        // If dragged for at least 15 min, open create block modal
+        if (e - s >= 15) {
+          openAddBlockModal(s, e);
+        }
+      }
+
+      function updateDragBox() {
+        const s = Math.min(dragStartMin, dragCurrentMin);
+        const e = Math.max(dragStartMin, dragCurrentMin);
+        if (e - s < 5) {
+          selBox.style.display = 'none';
+          return;
+        }
+        selBox.style.display = 'block';
+        selBox.style.top = `${s * PX_PER_MINUTE}px`;
+        selBox.style.height = `${(e - s) * PX_PER_MINUTE}px`;
+        selLabel.innerText = `${minToTimeStr(s)} - ${minToTimeStr(e)} (${formatMinutes(e - s)})`;
+      }
+
+      // Mouse events
+      canvas.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        onStart(e.clientY);
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (isDragging) onMove(e.clientY);
+      });
+      window.addEventListener('mouseup', () => {
+        if (isDragging) onEnd();
+      });
+
+      // Touch events (Finger-friendly for mobile)
+      canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          onStart(e.touches[0].clientY);
+        }
+      }, { passive: true });
+
+      canvas.addEventListener('touchmove', (e) => {
+        if (isDragging && e.touches.length === 1) {
+          onMove(e.touches[0].clientY);
+        }
+      }, { passive: true });
+
+      canvas.addEventListener('touchend', () => {
+        if (isDragging) onEnd();
+      });
+    }
+
+    // -------------------------------------------------------------------
+    // Block Modal (Colored chips, Label, Times, Delete)
+    // -------------------------------------------------------------------
+    function initTagPicker() {
+      const container = document.getElementById('modal-tag-picker');
+      container.innerHTML = '';
+      for (const tag of STATE.tags) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `tag-btn ${tag === STATE.modalSelectedTag ? 'active' : ''}`;
+        const color = STATE.colors[tag] || '#38bdf8';
+        btn.style.color = color;
+        btn.innerHTML = `<span style="width: 8px; height: 8px; border-radius: 50%; background: ${color};"></span> ${tag}`;
+        btn.onclick = () => selectModalTag(tag);
+        container.appendChild(btn);
+      }
+    }
+
+    function selectModalTag(tag) {
+      STATE.modalSelectedTag = tag;
+      const btns = document.querySelectorAll('.tag-btn');
+      btns.forEach(b => {
+        b.classList.toggle('active', b.innerText.trim() === tag);
+      });
+    }
+
+    function openAddBlockModal(startMin = null, endMin = null) {
+      STATE.activeEditingBlockId = null;
+      document.getElementById('block-modal-title').innerText = 'Add Activity Block';
+      document.getElementById('block-delete-btn').style.display = 'none';
+
+      // Default time window: either passed in or 9:00 - 10:00
+      let s = startMin !== null ? startMin : 540;
+      let e = endMin !== null ? endMin : 600;
+      if (e <= s) e = Math.min(1440, s + 60);
+
+      document.getElementById('block-start-time').value = minToTimeStr(s);
+      document.getElementById('block-end-time').value = minToTimeStr(e);
+      document.getElementById('block-label-input').value = '';
+
+      selectModalTag('Work');
+      document.getElementById('block-modal').classList.add('open');
+      document.getElementById('block-label-input').focus();
+    }
+
+    function openEditBlockModal(blockId) {
+      if (!STATE.dayData) return;
+      const block = STATE.dayData.blocks.find(b => b.id === blockId);
+      if (!block) return;
+
+      STATE.activeEditingBlockId = blockId;
+      document.getElementById('block-modal-title').innerText = 'Edit Activity Block';
+      document.getElementById('block-delete-btn').style.display = 'inline-block';
+
+      document.getElementById('block-start-time').value = minToTimeStr(block.start_min);
+      document.getElementById('block-end-time').value = minToTimeStr(block.end_min);
+      document.getElementById('block-label-input').value = block.label || '';
+
+      selectModalTag(block.tag);
+      document.getElementById('block-modal').classList.add('open');
+    }
+
+    function closeBlockModal() {
+      document.getElementById('block-modal').classList.remove('open');
+    }
+
+    async function saveBlockModal() {
+      const sVal = document.getElementById('block-start-time').value;
+      const eVal = document.getElementById('block-end-time').value;
+      if (!sVal || !eVal) {
+        showToast('Please enter both start and end times');
+        return;
+      }
+      const startMin = timeStrToMin(sVal);
+      const endMin = timeStrToMin(eVal);
+      if (endMin <= startMin) {
+        showToast('End time must be after start time');
+        return;
+      }
+
+      const label = document.getElementById('block-label-input').value.trim();
+      const tag = STATE.modalSelectedTag;
+
+      try {
+        if (STATE.activeEditingBlockId) {
+          // PATCH block (marks meta.user_edited = true)
+          await apiRequest(`/api/block/${STATE.activeEditingBlockId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              date: STATE.currentDate,
+              start_min: startMin,
+              end_min: endMin,
+              label,
+              tag
+            })
+          });
+          showToast('Block updated');
+        } else {
+          // POST block
+          await apiRequest('/api/block', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              date: STATE.currentDate,
+              start_min: startMin,
+              end_min: endMin,
+              label,
+              tag,
+              source: 'manual'
+            })
+          });
+          showToast('Block added');
+        }
+        closeBlockModal();
+        loadDay(STATE.currentDate);
+      } catch (err) {
+        showToast(`Save failed: ${err.message}`);
+      }
+    }
+
+    async function deleteCurrentBlock() {
+      if (!STATE.activeEditingBlockId) return;
+      try {
+        await apiRequest(`/api/block/${STATE.activeEditingBlockId}`, { method: 'DELETE' });
+        showToast('Block deleted');
+        closeBlockModal();
+        loadDay(STATE.currentDate);
+      } catch (err) {
+        showToast(`Delete failed: ${err.message}`);
+      }
+    }
+
+    // -------------------------------------------------------------------
+    // Watched Media Management
+    // -------------------------------------------------------------------
+    async function loadWatched(dateStr) {
+      const listEl = document.getElementById('watched-list');
+      listEl.innerHTML = '';
+      try {
+        const items = await apiRequest(`/api/watched/${dateStr}`);
+        if (items.length === 0) {
+          listEl.innerHTML = '<p style="font-size: 13px; color: var(--text-dim);">No movies or episodes recorded for today.</p>';
+          return;
+        }
+
+        for (const item of items) {
+          const card = document.createElement('div');
+          card.className = 'watched-card';
+          
+          let subText = '';
+          if (item.kind === 'episode' && item.series_title) {
+            const season = item.meta && item.meta.season ? `S${item.meta.season}` : '';
+            const ep = item.meta && item.meta.episode ? `E${item.meta.episode}` : '';
+            subText = `${escapeHtml(item.series_title)} ${season}${ep ? ' ' + ep : ''}`;
+          } else if (item.kind === 'movie' && item.meta && item.meta.year) {
+            subText = `${item.meta.year}`;
+          }
+
+          card.innerHTML = `
+            <div class="watched-card-info">
+              <span class="watched-kind-tag">${escapeHtml(item.kind)}</span>
+              <div class="watched-title">${escapeHtml(item.title)}</div>
+              ${subText ? `<div class="watched-sub">${subText}</div>` : ''}
+            </div>
+            <button class="watched-delete-btn" onclick="deleteWatchedItem(${item.id})" title="Delete entry">✕</button>
+          `;
+          listEl.appendChild(card);
+        }
+      } catch (err) {
+        listEl.innerHTML = `<p style="font-size: 13px; color: #f87171;">Failed to load watched list: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    async function deleteWatchedItem(id) {
+      try {
+        await apiRequest(`/api/watched/${id}`, { method: 'DELETE' });
+        showToast('Watched item removed');
+        loadWatched(STATE.currentDate);
+      } catch (err) {
+        showToast(`Failed to remove: ${err.message}`);
+      }
+    }
+
+    // Jellyfin Modal
+    function openJellyfinModal() {
+      document.getElementById('jf-search-input').value = '';
+      document.getElementById('jf-results-list').innerHTML = '';
+      document.getElementById('jf-status-msg').style.display = 'none';
+      document.getElementById('jellyfin-modal').classList.add('open');
+      document.getElementById('jf-search-input').focus();
+    }
+
+    function closeJellyfinModal() {
+      document.getElementById('jellyfin-modal').classList.remove('open');
+    }
+
+    function onJellyfinSearchInput() {
+      clearTimeout(STATE.jfSearchTimeout);
+      const q = document.getElementById('jf-search-input').value.trim();
+      const statusMsg = document.getElementById('jf-status-msg');
+      const resultsList = document.getElementById('jf-results-list');
+
+      if (!q) {
+        resultsList.innerHTML = '';
+        statusMsg.style.display = 'none';
+        return;
+      }
+
+      statusMsg.style.display = 'block';
+      statusMsg.innerText = 'Searching Jellyfin...';
+
+      STATE.jfSearchTimeout = setTimeout(async () => {
+        try {
+          const res = await apiRequest(`/api/jellyfin/search?q=${encodeURIComponent(q)}`);
+          statusMsg.style.display = 'none';
+          resultsList.innerHTML = '';
+
+          if (!res.items || res.items.length === 0) {
+            resultsList.innerHTML = '<p style="font-size: 13px; color: var(--text-dim);">No matching items found on Jellyfin.</p>';
+            return;
+          }
+
+          for (const item of res.items) {
+            const card = document.createElement('div');
+            card.className = 'jf-item-card';
+
+            const imgSrc = `${BASE_PATH}/api/jellyfin/image/${item.id}`;
+            card.innerHTML = `
+              <img class="jf-thumb" src="${imgSrc}" onerror="this.style.display='none'">
+              <div class="jf-details">
+                <div class="jf-title">${escapeHtml(item.title)}</div>
+                <div class="jf-meta">${escapeHtml(item.type)} ${item.year ? '• ' + item.year : ''}</div>
+              </div>
+            `;
+
+            card.onclick = () => onJellyfinItemClicked(item, card);
+            resultsList.appendChild(card);
+          }
+        } catch (err) {
+          statusMsg.style.display = 'block';
+          statusMsg.innerHTML = `<span style="color: #f87171;">${escapeHtml(err.message)}</span>`;
+        }
+      }, 300);
+    }
+
+    async function onJellyfinItemClicked(item, cardEl) {
+      if (item.type === 'movie') {
+        // Add movie directly
+        try {
+          await apiRequest('/api/watched', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              date: STATE.currentDate,
+              jellyfin_id: item.id,
+              title: item.title,
+              series_title: null,
+              kind: 'movie',
+              meta: { year: item.year }
+            })
+          });
+          showToast(`Added "${item.title}"`);
+          closeJellyfinModal();
+          loadWatched(STATE.currentDate);
+        } catch (err) {
+          showToast(`Failed to add: ${err.message}`);
+        }
+      } else if (item.type === 'series') {
+        // Expand seasons and episodes
+        let nested = cardEl.querySelector('.jf-nested-list');
+        if (nested) {
+          nested.remove();
+          return;
+        }
+        nested = document.createElement('div');
+        nested.className = 'jf-nested-list';
+        nested.innerHTML = '<p style="font-size: 12px; color: var(--text-muted);">Loading seasons...</p>';
+        cardEl.appendChild(nested);
+
+        try {
+          const sRes = await apiRequest(`/api/jellyfin/seasons?series_id=${item.id}`);
+          nested.innerHTML = '';
+          for (const s of sRes.seasons) {
+            const sBtn = document.createElement('div');
+            sBtn.style.fontSize = '12px';
+            sBtn.style.fontWeight = '600';
+            sBtn.style.color = 'var(--tag-work)';
+            sBtn.style.padding = '4px 0';
+            sBtn.innerText = `📂 ${s.name}`;
+
+            const epContainer = document.createElement('div');
+            epContainer.style.paddingLeft = '14px';
+
+            sBtn.onclick = async (e) => {
+              e.stopPropagation();
+              if (epContainer.children.length > 0) {
+                epContainer.innerHTML = '';
+                return;
+              }
+              epContainer.innerHTML = '<p style="font-size: 11px; color: var(--text-dim);">Loading episodes...</p>';
+              try {
+                const epRes = await apiRequest(`/api/jellyfin/episodes?season_id=${s.id}&series_id=${item.id}`);
+                epContainer.innerHTML = '';
+                for (const ep of epRes.episodes) {
+                  const epRow = document.createElement('div');
+                  epRow.style.fontSize = '12px';
+                  epRow.style.padding = '4px 0';
+                  epRow.style.cursor = 'pointer';
+                  epRow.innerText = `▶ Ep ${ep.index || '?'}: ${ep.name}`;
+                  epRow.onclick = async (ev) => {
+                    ev.stopPropagation();
+                    try {
+                      await apiRequest('/api/watched', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          date: STATE.currentDate,
+                          jellyfin_id: ep.id,
+                          title: ep.name,
+                          series_title: item.title,
+                          kind: 'episode',
+                          meta: { season: s.index, episode: ep.index }
+                        })
+                      });
+                      showToast(`Added "${item.title} — ${ep.name}"`);
+                      closeJellyfinModal();
+                      loadWatched(STATE.currentDate);
+                    } catch (err) {
+                      showToast(`Failed to add: ${err.message}`);
+                    }
+                  };
+                  epContainer.appendChild(epRow);
+                }
+              } catch (err) {
+                epContainer.innerHTML = `<p style="font-size: 11px; color: #f87171;">Failed to load episodes</p>`;
+              }
+            };
+
+            nested.appendChild(sBtn);
+            nested.appendChild(epContainer);
+          }
+        } catch (err) {
+          nested.innerHTML = `<p style="font-size: 12px; color: #f87171;">Failed to load seasons</p>`;
+        }
+      }
+    }
+
+    // Manual Watched Modal
+    function openManualWatchedModal() {
+      closeJellyfinModal();
+      document.getElementById('manual-watched-title').value = '';
+      document.getElementById('manual-watched-series').value = '';
+      document.getElementById('manual-watched-kind').value = 'movie';
+      onManualKindChange();
+      document.getElementById('manual-watched-modal').classList.add('open');
+      document.getElementById('manual-watched-title').focus();
+    }
+
+    function closeManualWatchedModal() {
+      document.getElementById('manual-watched-modal').classList.remove('open');
+    }
+
+    function onManualKindChange() {
+      const kind = document.getElementById('manual-watched-kind').value;
+      document.getElementById('manual-series-group').style.display = kind === 'episode' ? 'flex' : 'none';
+    }
+
+    async function saveManualWatched() {
+      const title = document.getElementById('manual-watched-title').value.trim();
+      if (!title) {
+        showToast('Please enter a title');
+        return;
+      }
+      const kind = document.getElementById('manual-watched-kind').value;
+      const seriesTitle = kind === 'episode' ? document.getElementById('manual-watched-series').value.trim() : null;
+
+      try {
+        await apiRequest('/api/watched', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: STATE.currentDate,
+            jellyfin_id: null,
+            title,
+            series_title: seriesTitle,
+            kind,
+            meta: {}
+          })
+        });
+        showToast(`Added "${title}"`);
+        closeManualWatchedModal();
+        loadWatched(STATE.currentDate);
+      } catch (err) {
+        showToast(`Save failed: ${err.message}`);
+      }
+    }
+
+    // -------------------------------------------------------------------
+    // GymTrack Sync
+    // -------------------------------------------------------------------
+    async function triggerGymTrackSync() {
+      showToast('Syncing GymTrack workouts...');
+      try {
+        const res = await apiRequest(`/api/sync/gymtrack?from=${STATE.currentDate}&to=${STATE.currentDate}`, {
+          method: 'POST'
+        });
+        showToast(`GymTrack sync done: ${res.created} created, ${res.updated} updated, ${res.needs_time} need time`);
+        loadDay(STATE.currentDate);
+      } catch (err) {
+        showToast(`GymTrack sync failed: ${err.message}`);
+      }
+    }
+
+    async function silentGymTrackSync(dateStr) {
+      try {
+        await apiRequest(`/api/sync/gymtrack?from=${dateStr}&to=${dateStr}`, { method: 'POST' });
+        // Silently reload day if new blocks were found
+        const fresh = await apiRequest(`/api/day/${dateStr}`);
+        if (fresh.blocks.length !== STATE.dayData.blocks.length) {
+          STATE.dayData = fresh;
+          renderTimeline(fresh);
+        }
+      } catch (err) {
+        // Silent fail as required: GymTrack being unreachable must not interrupt normal app operation
+      }
+    }
+
+    // -------------------------------------------------------------------
+    // SCREEN 3: STATISTICS SCREEN
+    // -------------------------------------------------------------------
+    function setStatsPeriod(period) {
+      STATE.statsPeriod = period;
+      STATE.statsOffset = 0;
+      document.getElementById('btn-period-week').classList.toggle('active', period === 'week');
+      document.getElementById('btn-period-month').classList.toggle('active', period === 'month');
+      loadStats();
+    }
+
+    function changeStatsOffset(delta) {
+      STATE.statsOffset += delta;
+      loadStats();
+    }
+
+    function getPeriodRange(period, offset) {
+      const ref = new Date();
+      if (period === 'week') {
+        const day = ref.getDay(); // 0 is Sunday
+        const diffToMon = (day === 0 ? -6 : 1) - day;
+        ref.setDate(ref.getDate() + diffToMon + offset * 7);
+
+        const fromD = new Date(ref);
+        const toD = new Date(ref);
+        toD.setDate(fromD.getDate() + 6);
+
+        const fStr = toISO(fromD);
+        const tStr = toISO(toD);
+        return { from: fStr, to: tStr, label: `Week: ${fStr.slice(5)} to ${tStr.slice(5)}` };
+      } else {
+        ref.setMonth(ref.getMonth() + offset);
+        const year = ref.getFullYear();
+        const month = ref.getMonth();
+        const fromD = new Date(year, month, 1);
+        const toD = new Date(year, month + 1, 0);
+
+        const fStr = toISO(fromD);
+        const tStr = toISO(toD);
+        const monthName = fromD.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        return { from: fStr, to: tStr, label: monthName };
+      }
+    }
+
+    function toISO(d) {
+      const yr = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      const da = String(d.getDate()).padStart(2, '0');
+      return `${yr}-${mo}-${da}`;
+    }
+
+    async function loadStats() {
+      const range = getPeriodRange(STATE.statsPeriod, STATE.statsOffset);
+      document.getElementById('stats-period-display').innerText = range.label;
+
+      try {
+        const data = await apiRequest(`/api/stats?from=${range.from}&to=${range.to}`);
+
+        // Summary cards
+        document.getElementById('stat-total-awake').innerText = formatMinutes(data.total_awake_minutes);
+        document.getElementById('stat-awake-sub').innerText = `${data.daily_breakdown.length} days in period`;
+
+        document.getElementById('stat-avg-sleep').innerText = data.sleep.avg_sleep_minutes ? formatMinutes(data.sleep.avg_sleep_minutes) : '--';
+        document.getElementById('stat-sleep-sub').innerText = `${data.sleep.recorded_days} recorded nights`;
+
+        document.getElementById('stat-avg-wake').innerText = data.sleep.avg_wake_min !== null ? minToTimeStr(data.sleep.avg_wake_min) : '--';
+
+        document.getElementById('stat-empty-days').innerText = data.empty_days_count;
+
+        // Daily stacked bar chart
+        renderDailyChart(data.daily_breakdown);
+
+        // Tag Bars List (Including prominent unlogged bar)
+        renderTagBars(data);
+
+        // Watched stats
+        renderWatchedStats(data.watched);
+
+      } catch (err) {
+        showToast(`Failed to load stats: ${err.message}`);
+      }
+    }
+
+    function renderTagBars(data) {
+      const container = document.getElementById('tag-bars-list');
+      container.innerHTML = '';
+
+      // Merge tags list with Unlogged item
+      const items = [...data.tags];
+      items.push({
+        tag: 'Unlogged',
+        minutes: data.unlogged_minutes,
+        percentage: data.unlogged_percentage,
+        color: 'var(--tag-unlogged)'
+      });
+
+      // Sort descending by minutes
+      items.sort((a, b) => b.minutes - a.minutes);
+
+      for (const item of items) {
+        const isUnlogged = item.tag === 'Unlogged';
+        const barItem = document.createElement('div');
+        barItem.className = 'tag-bar-item';
+        
+        barItem.innerHTML = `
+          <div class="tag-bar-meta">
+            <div class="tag-name-wrap" style="color: ${item.color}">
+              <span class="tag-dot" style="background: ${item.color};"></span>
+              <span>${escapeHtml(item.tag)}</span>
+            </div>
+            <div style="font-size: 13px; color: ${isUnlogged ? '#cbd5e1' : 'var(--text-main)'};">
+              <strong>${formatMinutes(item.minutes)}</strong>
+              <span style="color: var(--text-dim); margin-left: 6px;">(${item.percentage}%)</span>
+            </div>
+          </div>
+          <div class="tag-progress-track">
+            <div class="tag-progress-fill" style="width: ${Math.min(100, item.percentage)}%; background: ${item.color};"></div>
+          </div>
+        `;
+        container.appendChild(barItem);
+      }
+    }
+
+    function renderDailyChart(days) {
+      const chart = document.getElementById('daily-chart');
+      chart.innerHTML = '';
+
+      if (!days || days.length === 0) return;
+
+      for (const d of days) {
+        const col = document.createElement('div');
+        col.className = 'chart-day-col';
+
+        const stack = document.createElement('div');
+        stack.className = 'chart-bar-stack';
+
+        // Height as percentage of 24h
+        const awakePct = (d.awake_time / 1440) * 100;
+        stack.style.height = `${Math.max(15, awakePct)}%`;
+
+        // Segments for logged tags
+        for (const tag of STATE.tags) {
+          const mins = d.tags[tag] || 0;
+          if (mins > 0 && d.awake_time > 0) {
+            const seg = document.createElement('div');
+            seg.className = 'chart-segment';
+            const segPct = (mins / d.awake_time) * 100;
+            seg.style.height = `${segPct}%`;
+            seg.style.background = STATE.colors[tag] || '#38bdf8';
+            seg.title = `${tag}: ${formatMinutes(mins)}`;
+            stack.appendChild(seg);
+          }
+        }
+
+        // Segment for unlogged time
+        if (d.unlogged_time > 0 && d.awake_time > 0) {
+          const unloggedSeg = document.createElement('div');
+          unloggedSeg.className = 'chart-segment';
+          const unloggedPct = (d.unlogged_time / d.awake_time) * 100;
+          unloggedSeg.style.height = `${unloggedPct}%`;
+          unloggedSeg.style.background = 'rgba(100, 116, 139, 0.35)';
+          unloggedSeg.title = `Unlogged: ${formatMinutes(d.unlogged_time)}`;
+          stack.appendChild(unloggedSeg);
+        }
+
+        col.appendChild(stack);
+
+        const dateObj = new Date(d.date + 'T00:00:00');
+        const dayLabel = document.createElement('div');
+        dayLabel.className = 'chart-day-label';
+        dayLabel.innerText = `${dateObj.getDate()}`;
+        col.appendChild(dayLabel);
+
+        col.onclick = () => {
+          STATE.currentDate = d.date;
+          switchView('day');
+        };
+
+        chart.appendChild(col);
+      }
+    }
+
+    function renderWatchedStats(watched) {
+      const badge = document.getElementById('watched-totals-badge');
+      const list = document.getElementById('watched-stats-list');
+      list.innerHTML = '';
+
+      badge.innerHTML = `
+        <span>🎬 Movies: <strong>${watched.total_movies}</strong></span>
+        <span>📺 Episodes: <strong>${watched.total_episodes}</strong></span>
+        ${watched.total_other ? `<span>📌 Other: <strong>${watched.total_other}</strong></span>` : ''}
+      `;
+
+      if (watched.total_movies === 0 && watched.total_episodes === 0 && watched.total_other === 0) {
+        list.innerHTML = '<p style="font-size: 13px; color: var(--text-dim); padding-top: 10px;">No titles recorded in this period.</p>';
+        return;
+      }
+
+      // 1. Series grouped
+      for (const s of watched.series) {
+        const grp = document.createElement('div');
+        grp.className = 'series-group';
+        grp.innerHTML = `
+          <div class="series-group-title">
+            <span>📺 ${escapeHtml(s.series_title)}</span>
+            <span style="font-size: 12px; color: var(--tag-work);">${s.episode_count} ${s.episode_count === 1 ? 'episode' : 'episodes'}</span>
+          </div>
+          <div class="series-episodes-list">
+            ${s.episodes.map(ep => `<div>• ${escapeHtml(ep.title)} <span style="font-size: 11px; color: var(--text-dim);">(${ep.date})</span></div>`).join('')}
+          </div>
+        `;
+        list.appendChild(grp);
+      }
+
+      // 2. Movies list
+      if (watched.movies.length > 0) {
+        const mGrp = document.createElement('div');
+        mGrp.className = 'series-group';
+        mGrp.innerHTML = `
+          <div class="series-group-title">
+            <span>🎬 Movies</span>
+            <span style="font-size: 12px; color: var(--tag-gaming);">${watched.movies.length}</span>
+          </div>
+          <div class="series-episodes-list">
+            ${watched.movies.map(m => `<div>• ${escapeHtml(m.title)} <span style="font-size: 11px; color: var(--text-dim);">(${m.date})</span></div>`).join('')}
+          </div>
+        `;
+        list.appendChild(mGrp);
+      }
+
+      // 3. Other items
+      if (watched.other.length > 0) {
+        const oGrp = document.createElement('div');
+        oGrp.className = 'series-group';
+        oGrp.innerHTML = `
+          <div class="series-group-title">
+            <span>📌 Other</span>
+            <span style="font-size: 12px; color: var(--tag-study);">${watched.other.length}</span>
+          </div>
+          <div class="series-episodes-list">
+            ${watched.other.map(o => `<div>• ${escapeHtml(o.title)} <span style="font-size: 11px; color: var(--text-dim);">(${o.date})</span></div>`).join('')}
+          </div>
+        `;
+        list.appendChild(oGrp);
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // -------------------------------------------------------------------
+    // App Initialization
+    // -------------------------------------------------------------------
+    window.addEventListener('DOMContentLoaded', async () => {
+      initTimelineAxis();
+      initTimelineDrag();
+      initTagPicker();
+
+      // Fetch dynamic tags and colors
+      try {
+        const tagData = await apiRequest('/api/tags');
+        if (tagData.tags) STATE.tags = tagData.tags;
+        if (tagData.colors) STATE.colors = tagData.colors;
+        initTagPicker();
+      } catch (e) {}
+
+      loadDay(STATE.currentDate);
+    });
+  </script>
+</body>
+</html>
+
