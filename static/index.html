@@ -823,6 +823,47 @@
       color: #fff;
     }
 
+    /* GymTrack Workouts Section & Cards */
+    .gymtrack-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    .gymtrack-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: all 0.15s ease;
+    }
+
+    .gymtrack-card:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: var(--border-focus);
+    }
+
+    .gymtrack-card-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow: hidden;
+    }
+
+    .gymtrack-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+      display: inline-block;
+      width: fit-content;
+    }
+
     /* Stats Screen Styles */
     .stats-header {
       display: flex;
@@ -1326,8 +1367,6 @@
 
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="btn-pill" onclick="openAddBlockModal()">+ Add Block</button>
-            <button class="btn-pill" onclick="triggerGymTrackSync()" title="Sync workouts from GymTrack">⚡ GymTrack</button>
-            <button class="btn-pill" onclick="triggerSteamSync()" title="Sync played games from Steam">🎮 Steam</button>
             <button class="btn-pill" onclick="openSettingsModal()" title="Configure integrations & API keys">⚙ Settings</button>
           </div>
         </div>
@@ -1402,25 +1441,6 @@
         </div>
       </div>
 
-      <!-- Watched Section (Completely independent from timeline) -->
-      <div class="glass-panel watched-section">
-        <div class="section-title-row">
-          <div>
-            <h3>Watched Today</h3>
-            <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">
-              Titles logged for the day (does not alter timeline blocks).
-            </p>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn-pill" onclick="openJellyfinModal()">+ Add from Jellyfin</button>
-            <button class="btn-pill" onclick="openManualWatchedModal()">+ Add Manually</button>
-          </div>
-        </div>
-
-        <div class="watched-list" id="watched-list">
-          <!-- Populated by JS -->
-      </div>
-
       <!-- Games Section (Steam Integration) -->
       <div class="glass-panel games-section" style="margin-top: 14px;">
         <div class="section-title-row">
@@ -1437,6 +1457,45 @@
         </div>
 
         <div class="games-list" id="games-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Watched Section (Completely independent from timeline) -->
+      <div class="glass-panel watched-section" style="margin-top: 14px;">
+        <div class="section-title-row">
+          <div>
+            <h3>🎬 Watched Today</h3>
+            <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">
+              Titles logged for the day (does not alter timeline blocks).
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-pill" onclick="openJellyfinModal()">+ Add from Jellyfin</button>
+            <button class="btn-pill" onclick="openManualWatchedModal()">+ Add Manually</button>
+          </div>
+        </div>
+
+        <div class="watched-list" id="watched-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- GymTrack Workouts Section -->
+      <div class="glass-panel gymtrack-section" style="margin-top: 14px;">
+        <div class="section-title-row">
+          <div>
+            <h3>🏋️ Workouts (GymTrack)</h3>
+            <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">
+              Workouts imported from GymTrack into your timeline.
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-pill" onclick="triggerGymTrackSync()" title="Sync workouts from GymTrack">⚡ Sync GymTrack</button>
+          </div>
+        </div>
+
+        <div class="gymtrack-list" id="gymtrack-list">
           <!-- Populated by JS -->
         </div>
       </div>
@@ -1522,6 +1581,7 @@
           </div>
           <div id="watched-stats-list">
             <!-- Rendered via JS -->
+          </div>
         </div>
 
         <!-- Steam Gaming in Period Overview -->
@@ -1862,6 +1922,9 @@
 
         // Render Steam games
         renderSteamGames(data.steam_games || []);
+
+        // Render GymTrack workouts
+        renderGymTrackWorkouts(data.blocks || []);
 
         // Check if day has gymtrack blocks; if none, attempt silent auto-sync
         const hasGymTrack = data.blocks.some(b => b.source === 'gymtrack');
@@ -2817,9 +2880,51 @@
         if (fresh.blocks.length !== STATE.dayData.blocks.length) {
           STATE.dayData = fresh;
           renderTimeline(fresh);
+          renderGymTrackWorkouts(fresh.blocks);
         }
       } catch (err) {
         // Silent fail as required: GymTrack being unreachable must not interrupt normal app operation
+      }
+    }
+
+    function renderGymTrackWorkouts(blocks) {
+      const listEl = document.getElementById('gymtrack-list');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      const gymBlocks = (blocks || []).filter(b => b.source === 'gymtrack');
+      if (gymBlocks.length === 0) {
+        listEl.innerHTML = '<p style="font-size: 13px; color: var(--text-dim); grid-column: 1 / -1;">No workouts synced for today. Click "⚡ Sync GymTrack" to import.</p>';
+        return;
+      }
+
+      for (const b of gymBlocks) {
+        const card = document.createElement('div');
+        card.className = 'gymtrack-card';
+
+        const tagColor = STATE.colors[b.tag] || '#10b981';
+        const durMin = Math.round((b.meta?.seconds || (b.end_min - b.start_min) * 60) / 60);
+        const isNeedsTime = b.meta && b.meta.needs_time;
+
+        const timeInfo = isNeedsTime
+          ? `<span style="color: #f59e0b; font-size: 12px; font-weight: 600;">⚠️ Needs time (${durMin}m)</span>`
+          : `<span style="font-size: 12px; color: var(--text-muted);">🕒 ${minToTimeStr(b.start_min % 1440)}–${minToTimeStr(b.end_min % 1440)} (${durMin}m)</span>`;
+
+        card.innerHTML = `
+          <div class="gymtrack-card-info">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="gymtrack-badge" style="background: ${tagColor}22; color: ${tagColor}; border: 1px solid ${tagColor}44;">${escapeHtml(b.tag)}</span>
+              <strong style="font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(b.label || 'Workout')}</strong>
+            </div>
+            <div>${timeInfo}</div>
+          </div>
+          <div>
+            <button class="${isNeedsTime ? 'btn-pill' : 'btn-secondary'}" style="font-size: 11px; padding: 4px 10px;" onclick="openEditBlockModal(${b.id})">
+              ${isNeedsTime ? 'Set Time' : 'Edit'}
+            </button>
+          </div>
+        `;
+        listEl.appendChild(card);
       }
     }
 
