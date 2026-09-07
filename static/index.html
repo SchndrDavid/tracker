@@ -1394,6 +1394,7 @@
 
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="btn-pill" onclick="openAddBlockModal()">+ Add Block</button>
+            <button class="btn-pill" id="btn-sync-all" onclick="syncAllIntegrations()" title="Sync GymTrack, Steam & Jellyfin all at once">⚡ Sync All</button>
             <button class="btn-pill" onclick="openSettingsModal()" title="Configure integrations & API keys">⚙ Settings</button>
           </div>
         </div>
@@ -2355,12 +2356,22 @@
         blockEl.style.borderLeft = `4px solid ${tagColor}`;
 
         const endFormatted = b.end_min >= 1440 ? `${minToTimeStr(b.end_min % 1440)} (+1)` : minToTimeStr(b.end_min);
+        let runSnippet = '';
+        if (b.tag === 'Running' && b.meta) {
+          const runParts = [];
+          if (b.meta.distance) runParts.push(b.meta.distance);
+          if (b.meta.pace) runParts.push(`⚡ ${b.meta.pace}`);
+          if (runParts.length > 0) {
+            runSnippet = `<div class="block-running-stats" style="font-size: 11px; opacity: 0.9; margin-top: 1px; font-weight: 500;">${escapeHtml(runParts.join(' · '))}</div>`;
+          }
+        }
         blockEl.innerHTML = `
           <div class="block-header">
             <span class="block-tag-badge" style="color: ${tagColor}">${escapeHtml(b.tag)}</span>
             <span class="block-time-range">${minToTimeStr(b.start_min % 1440)}–${endFormatted}</span>
           </div>
           ${b.label ? `<div class="block-label">${escapeHtml(b.label)}</div>` : ''}
+          ${runSnippet}
         `;
 
         blockEl.onclick = (e) => {
@@ -2966,6 +2977,71 @@
     // -------------------------------------------------------------------
     // GymTrack Sync
     // -------------------------------------------------------------------
+    async function syncAllIntegrations() {
+      const btn = document.getElementById('btn-sync-all');
+      const originalText = btn ? btn.innerHTML : '⚡ Sync All';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '🔄 Syncing...';
+      }
+      showToast('Syncing all integrations (GymTrack, Steam, Jellyfin)...');
+
+      const messages = [];
+
+      // 1. GymTrack
+      try {
+        const res = await apiRequest(`/api/sync/gymtrack?from=${STATE.currentDate}&to=${STATE.currentDate}`, {
+          method: 'POST'
+        });
+        if (res.created > 0 || res.updated > 0) {
+          messages.push(`GymTrack (+${res.created})`);
+        } else {
+          messages.push('GymTrack ok');
+        }
+      } catch (err) {
+        if (!err.message || !err.message.includes('not configured')) {
+          messages.push('GymTrack failed');
+        }
+      }
+
+      // 2. Steam
+      try {
+        const res = await apiRequest('/api/sync/steam', { method: 'POST' });
+        if (res.updated_today > 0) {
+          messages.push(`Steam (${res.updated_today} played)`);
+        } else {
+          messages.push('Steam ok');
+        }
+      } catch (err) {
+        if (!err.message || !err.message.includes('not configured')) {
+          messages.push('Steam failed');
+        }
+      }
+
+      // 3. Jellyfin
+      try {
+        const res = await apiRequest('/api/sync/jellyfin', { method: 'POST' });
+        if (res.created > 0) {
+          messages.push(`Jellyfin (+${res.created})`);
+        } else {
+          messages.push('Jellyfin ok');
+        }
+      } catch (err) {
+        if (!err.message || !err.message.includes('not configured')) {
+          messages.push('Jellyfin failed');
+        }
+      }
+
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+
+      showToast(messages.length > 0 ? `Synced: ${messages.join(' · ')}` : 'All integrations synced');
+      loadDay(STATE.currentDate);
+      loadWatched(STATE.currentDate);
+    }
+
     async function triggerGymTrackSync() {
       showToast('Syncing GymTrack workouts...');
       try {
@@ -3017,13 +3093,34 @@
           ? `<span style="color: #f59e0b; font-size: 12px; font-weight: 600;">⚠️ Needs time (${durMin}m)</span>`
           : `<span style="font-size: 12px; color: var(--text-muted);">🕒 ${minToTimeStr(b.start_min % 1440)}–${minToTimeStr(b.end_min % 1440)} (${durMin}m)</span>`;
 
+        let extraDetail = '';
+        if (b.tag === 'Running' && b.meta) {
+          const runParts = [];
+          if (b.meta.distance) runParts.push(`📍 ${escapeHtml(b.meta.distance)}`);
+          if (b.meta.pace) runParts.push(`⚡ ${escapeHtml(b.meta.pace)}`);
+          if (b.meta.speed) runParts.push(`💨 ${escapeHtml(b.meta.speed)}`);
+          if (runParts.length > 0) {
+            extraDetail = `<div style="font-size: 12px; color: var(--text-dim); margin-top: 3px;">${runParts.join(' · ')}</div>`;
+          } else if (b.meta.note) {
+            extraDetail = `<div style="font-size: 12px; color: var(--text-dim); margin-top: 3px;">📍 ${escapeHtml(b.meta.note)}</div>`;
+          }
+        } else if (b.meta && b.meta.exercises && Array.isArray(b.meta.exercises) && b.meta.exercises.length > 0) {
+          const exList = b.meta.exercises;
+          const exStr = exList.slice(0, 4).join(', ') + (exList.length > 4 ? ` +${exList.length - 4} more` : '');
+          extraDetail = `<div style="font-size: 11px; color: var(--text-dim); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(exList.join(', '))}">💪 ${escapeHtml(exStr)}</div>`;
+        }
+
+        const icon = b.tag === 'Running' ? '🏃' : '🏋️';
+
         card.innerHTML = `
-          <div class="gymtrack-card-info">
+          <div class="gymtrack-card-info" style="min-width: 0;">
             <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 15px;">${icon}</span>
               <span class="gymtrack-badge" style="background: ${tagColor}22; color: ${tagColor}; border: 1px solid ${tagColor}44;">${escapeHtml(b.tag)}</span>
               <strong style="font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(b.label || 'Workout')}</strong>
             </div>
             <div>${timeInfo}</div>
+            ${extraDetail}
           </div>
           <div>
             <button class="${isNeedsTime ? 'btn-pill' : 'btn-secondary'}" style="font-size: 11px; padding: 4px 10px;" onclick="openEditBlockModal(${b.id})">

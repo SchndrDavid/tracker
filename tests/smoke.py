@@ -22,7 +22,7 @@ os.environ["JELLYFIN_URL"] = ""
 # Start Fake GymTrack server on ephemeral port
 class FakeGymTrackHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path.startswith("/api/log"):
+        if self.path.startswith("/api/workouts") or self.path.startswith("/api/log"):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
@@ -33,14 +33,28 @@ class FakeGymTrackHandler(BaseHTTPRequestHandler):
                         "date": "2026-09-07",
                         "name": "Morning Outdoor Run",
                         "seconds": 3600,
-                        "started_at": "2026-09-07T07:30:00"
+                        "started_at": "2026-09-07T07:30:00",
+                        "exercises": [
+                            {
+                                "name": "Běh",
+                                "type": "time",
+                                "distance_km": 8.5,
+                                "pace": "5:15 /km",
+                                "speed_kmh": 11.4,
+                                "note": "8.5 km · 11.4 km/h · tempo 5:15/km"
+                            }
+                        ]
                     },
                     {
                         "id": 43,
                         "date": "2026-09-07",
                         "name": "Full-body Heavy Circuit",
                         "seconds": 5400,
-                        "started_at": None
+                        "started_at": None,
+                        "exercises": [
+                            {"name": "Bench press", "type": "weight"},
+                            {"name": "Chin-ups", "type": "reps"}
+                        ]
                     }
                 ]
             }
@@ -300,16 +314,20 @@ def main_test():
     print(f"\nGET /api/day/{sync_date} -> Found {len(gym_blocks)} blocks (expected 2)")
     assert len(gym_blocks) == 2
 
-    # Verify workout 43 has needs_time: true
+    # Verify workout 43 has needs_time: true and exercises list
     b_needs_time = next(b for b in gym_blocks if b["external_id"] == "43")
     print(f"Workout 43 without started_at meta: {b_needs_time['meta']}")
     assert b_needs_time["meta"]["needs_time"] is True
     assert b_needs_time["tag"] == "Gym"
+    assert b_needs_time["meta"]["exercises"] == ["Bench press", "Chin-ups"]
 
-    # Verify workout 42 with run in name has tag Running
+    # Verify workout 42 with run in name has tag Running and rich running metrics
     b_run = next(b for b in gym_blocks if b["external_id"] == "42")
-    print(f"Workout 42 ('run') tag: {b_run['tag']}")
+    print(f"Workout 42 ('run') tag: {b_run['tag']} meta: {b_run['meta']}")
     assert b_run["tag"] == "Running"
+    assert b_run["meta"]["distance"] == "8.5 km"
+    assert b_run["meta"]["pace"] == "5:15 /km"
+    assert b_run["meta"]["speed"] == "11.4 km/h"
 
     # Manually adjust workout 43's time via PATCH
     r_adjust = client.patch(f"/api/block/{b_needs_time['id']}", json={

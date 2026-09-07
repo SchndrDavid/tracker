@@ -974,23 +974,30 @@ async def sync_gymtrack(
             detail="GYMTRACK_URL is not configured."
         )
 
-    target_url = f"{gymtrack_url}/api/log"
+    workouts = []
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.get(target_url, params={"from": vfrom, "to": vto})
-            if resp.status_code != 200:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=f"GymTrack returned status {resp.status_code}."
-                )
-            data = resp.json()
+            # Try rich workouts endpoint first (contains exercises, notes, pace, distance)
+            resp = await client.get(f"{gymtrack_url}/api/workouts", params={"limit": 250})
+            if resp.status_code == 200:
+                data = resp.json()
+                all_w = data.get("workouts", [])
+                workouts = [w for w in all_w if vfrom <= str(w.get("date", "")) <= vto]
+            else:
+                # Fallback to /api/log
+                resp_log = await client.get(f"{gymtrack_url}/api/log", params={"from": vfrom, "to": vto})
+                if resp_log.status_code == 200:
+                    workouts = resp_log.json().get("workouts", [])
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail=f"GymTrack returned status {resp_log.status_code}."
+                    )
     except httpx.RequestError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="GymTrack service is unreachable."
         )
-
-    workouts = data.get("workouts", [])
 
     created_count = 0
     updated_count = 0
@@ -1007,12 +1014,53 @@ async def sync_gymtrack(
                 seconds = int(w.get("seconds", 0))
                 duration_min = max(1, round(seconds / 60))
                 started_at = w.get("started_at")
+                exercises = w.get("exercises", [])
 
                 # Tag determination: 'run' or 'běh' -> Running, else Gym
                 if re.search(r"run|běh", name, re.IGNORECASE):
                     tag = "Running"
                 else:
                     tag = "Gym"
+
+                # Parse rich running stats (distance, pace, speed, note) or gym exercises
+                run_distance = None
+                run_pace = None
+                run_speed = None
+                run_note = None
+                gym_exercises = []
+
+                if tag == "Running":
+                    if exercises and isinstance(exercises, list) and len(exercises) > 0:
+                        ex0 = exercises[0]
+                        run_note = ex0.get("note") or ""
+                        if ex0.get("distance_km"):
+                            run_distance = f"{ex0.get('distance_km')} km"
+                        if ex0.get("pace"):
+                            run_pace = str(ex0.get("pace"))
+                        if ex0.get("speed_kmh"):
+                            run_speed = f"{ex0.get('speed_kmh')} km/h"
+
+                    if run_note:
+                        if not run_distance:
+                            m_dist = re.search(r"([\d\.,]+)\s*km", run_note, re.I)
+                            if m_dist:
+                                run_distance = f"{m_dist.group(1)} km"
+                        if not run_pace:
+                            m_pace = re.search(r"tempo\s*([\d:]+\s*(?:\/km)?)", run_note, re.I)
+                            if m_pace:
+                                run_pace = m_pace.group(1)
+                        if not run_speed:
+                            m_spd = re.search(r"([\d\.,]+)\s*km\/h", run_note, re.I)
+                            if m_spd:
+                                run_speed = f"{m_spd.group(1)} km/h"
+
+                    if not run_distance:
+                        m_name_dist = re.search(r"([\d\.,]+)\s*km", name, re.I)
+                        if m_name_dist:
+                            run_distance = f"{m_name_dist.group(1)} km"
+                else:
+                    if exercises and isinstance(exercises, list):
+                        gym_exercises = [e.get("name") for e in exercises if isinstance(e, dict) and e.get("name")]
 
                 # Check if block exists
                 existing = conn.execute(
@@ -1050,6 +1098,21 @@ async def sync_gymtrack(
                             "workout_name": name,
                             "user_edited": False
                         }
+                        if tag == "Running":
+                            new_meta["kind"] = "run"
+                            if run_distance:
+                                new_meta["distance"] = run_distance
+                            if run_pace:
+                                new_meta["pace"] = run_pace
+                            if run_speed:
+                                new_meta["speed"] = run_speed
+                            if run_note:
+                                new_meta["note"] = run_note
+                        else:
+                            new_meta["kind"] = "gym"
+                            if gym_exercises:
+                                new_meta["exercises"] = gym_exercises
+
                         conn.execute("""
                         UPDATE blocks
                         SET date = ?, start_min = ?, end_min = ?, label = ?, tag = ?, meta = ?
@@ -1092,6 +1155,20 @@ async def sync_gymtrack(
                         "workout_name": name,
                         "user_edited": False
                     }
+                    if tag == "Running":
+                        meta["kind"] = "run"
+                        if run_distance:
+                            meta["distance"] = run_distance
+                        if run_pace:
+                            meta["pace"] = run_pace
+                        if run_speed:
+                            meta["speed"] = run_speed
+                        if run_note:
+                            meta["note"] = run_note
+                    else:
+                        meta["kind"] = "gym"
+                        if gym_exercises:
+                            meta["exercises"] = gym_exercises
 
                     conn.execute("""
                     INSERT INTO blocks (date, start_min, end_min, label, tag, source, external_id, meta)
