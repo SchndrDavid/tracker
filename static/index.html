@@ -257,6 +257,100 @@
       border-color: var(--tag-work);
     }
 
+    .btn-time-clear {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 13px;
+      padding: 3px 5px;
+      border-radius: var(--radius-sm);
+      line-height: 1;
+      transition: color 0.15s ease;
+    }
+
+    .btn-time-clear:hover {
+      color: #f87171;
+    }
+
+    .pill-next-day {
+      background: rgba(168, 85, 247, 0.18);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #d8b4fe;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .timeline-mode-toggle {
+      display: inline-flex;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-pill);
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .timeline-mode-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .timeline-mode-btn.active {
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+    }
+
+    .sleep-crop-capsule {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px dashed var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 9px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      transition: background 0.15s;
+    }
+
+    .sleep-crop-capsule:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--border-focus);
+    }
+
+    .sleep-crop-capsule strong {
+      color: #fff;
+    }
+
+    .sleep-crop-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .sleep-crop-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: var(--border-focus);
+    }
+
     .unlogged-badge {
       margin-left: auto;
       background: rgba(100, 116, 139, 0.15);
@@ -1127,12 +1221,20 @@
         <div class="day-meta-row">
           <div class="meta-input-group">
             <label for="wake-time-input">Wake up:</label>
-            <input type="time" id="wake-time-input" onchange="onSleepWakeChanged()">
+            <input type="time" id="wake-time-input" onchange="onWakeTimeChanged()">
+            <button class="btn-time-clear" onclick="clearWakeTime()" title="Clear wake time">✕</button>
           </div>
 
           <div class="meta-input-group">
             <label for="sleep-time-input">Went to sleep:</label>
-            <input type="time" id="sleep-time-input" onchange="onSleepWakeChanged()">
+            <input type="time" id="sleep-time-input" onchange="onSleepTimeChanged()">
+            <button class="btn-time-clear" onclick="clearSleepTime()" title="Clear bedtime">✕</button>
+            <span id="sleep-next-day-badge" class="pill-next-day" style="display: none;" title="Bedtime is past midnight (next calendar day)">🌙 +1d</span>
+          </div>
+
+          <div class="timeline-mode-toggle" title="Switch between focused waking hours and full 24h timeline">
+            <button id="btn-mode-focused" class="timeline-mode-btn active" onclick="setTimelineMode('focused')">☀️ Focused</button>
+            <button id="btn-mode-full" class="timeline-mode-btn" onclick="setTimelineMode('full')">🕒 24h Grid</button>
           </div>
 
           <div class="unlogged-badge" id="unlogged-badge" title="Time in awake hours without recorded activity">
@@ -1145,10 +1247,13 @@
       <!-- Pending 'needs_time' GymTrack Alert Banner -->
       <div id="needs-time-container" style="margin-top: 14px; display: none;"></div>
 
-      <!-- 24-Hour Vertical Timeline -->
+      <!-- Vertical Timeline -->
       <div class="glass-panel" style="margin-top: 14px;">
+        <!-- Top Sleep Crop Capsule -->
+        <div id="sleep-top-capsule-container" style="margin-bottom: 12px; display: none;"></div>
+
         <div class="timeline-wrapper">
-          <!-- Hour labels axis (00:00 to 24:00) -->
+          <!-- Hour labels axis -->
           <div class="timeline-hour-axis" id="timeline-axis"></div>
 
           <!-- Timeline interactive area -->
@@ -1156,7 +1261,7 @@
             <!-- Background Hour Lines -->
             <div id="timeline-gridlines"></div>
 
-            <!-- Sleep zones (dimmed out) -->
+            <!-- Sleep zones (dimmed out in 24h mode) -->
             <div id="sleep-zones"></div>
 
             <!-- Drag selection box -->
@@ -1168,6 +1273,9 @@
             <div id="timeline-blocks"></div>
           </div>
         </div>
+
+        <!-- Bottom Sleep Crop Capsule -->
+        <div id="sleep-bottom-capsule-container" style="margin-top: 12px; display: none;"></div>
 
         <!-- Day Note with debounced autosave -->
         <div class="note-section">
@@ -1315,7 +1423,12 @@
           <input type="time" id="block-start-time" class="form-control">
         </div>
         <div class="form-group" style="flex: 1;">
-          <label class="form-label" for="block-end-time">End Time</label>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" for="block-end-time" style="margin-bottom: 0;">End Time</label>
+            <label style="font-size: 11px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Activity finished after midnight on next day">
+              <input type="checkbox" id="block-end-next-day" style="cursor: pointer;"> +1d (next day)
+            </label>
+          </div>
           <input type="time" id="block-end-time" class="form-control">
         </div>
       </div>
@@ -1404,6 +1517,7 @@
       dayData: null,
       statsPeriod: 'week',     // 'week' | 'month'
       statsOffset: 0,
+      timelineMode: localStorage.getItem('daylog_mode') || 'focused', // 'focused' | 'full'
       activeEditingBlockId: null,
       modalSelectedTag: "Work",
       needsTimeBlocks: [],
@@ -1506,6 +1620,19 @@
         // Populate sleep/wake inputs
         document.getElementById('wake-time-input').value = data.wake_time !== null ? minToTimeStr(data.wake_time) : '';
         document.getElementById('sleep-time-input').value = data.sleep_time !== null ? minToTimeStr(data.sleep_time) : '';
+
+        // Show/hide next day badge for bedtime past midnight
+        const badgeNextDay = document.getElementById('sleep-next-day-badge');
+        if (badgeNextDay) {
+          const isPastMidnight = data.wake_time !== null && data.sleep_time !== null && data.sleep_time < data.wake_time;
+          badgeNextDay.style.display = isPastMidnight ? 'inline-flex' : 'none';
+        }
+
+        // Sync mode buttons
+        const btnFocused = document.getElementById('btn-mode-focused');
+        const btnFull = document.getElementById('btn-mode-full');
+        if (btnFocused) btnFocused.classList.toggle('active', STATE.timelineMode === 'focused');
+        if (btnFull) btnFull.classList.toggle('active', STATE.timelineMode === 'full');
         
         // Populate note
         document.getElementById('day-note').value = data.note || '';
@@ -1551,15 +1678,32 @@
     }
 
     // -------------------------------------------------------------------
-    // Sleep & Awake Updates
+    // Sleep & Awake Updates & Mode Toggle
     // -------------------------------------------------------------------
-    async function onSleepWakeChanged() {
+    function setTimelineMode(mode) {
+      STATE.timelineMode = mode;
+      try {
+        localStorage.setItem('daylog_mode', mode);
+      } catch (e) {}
+      const btnFocused = document.getElementById('btn-mode-focused');
+      const btnFull = document.getElementById('btn-mode-full');
+      if (btnFocused) btnFocused.classList.toggle('active', mode === 'focused');
+      if (btnFull) btnFull.classList.toggle('active', mode === 'full');
+      if (STATE.dayData) {
+        renderTimeline(STATE.dayData);
+      }
+    }
+
+    async function updateDayMeta(updates) {
       const wakeVal = document.getElementById('wake-time-input').value;
       const sleepVal = document.getElementById('sleep-time-input').value;
-
-      const wakeMin = wakeVal ? timeStrToMin(wakeVal) : null;
-      const sleepMin = sleepVal ? timeStrToMin(sleepVal) : null;
       const note = document.getElementById('day-note').value;
+
+      let wakeMin = wakeVal ? timeStrToMin(wakeVal) : null;
+      let sleepMin = sleepVal ? timeStrToMin(sleepVal) : null;
+
+      if ('wake_time' in updates) wakeMin = updates.wake_time;
+      if ('sleep_time' in updates) sleepMin = updates.sleep_time;
 
       try {
         await apiRequest(`/api/day/${STATE.currentDate}`, {
@@ -1569,8 +1713,28 @@
         });
         loadDay(STATE.currentDate);
       } catch (err) {
-        showToast(`Error updating sleep times: ${err.message}`);
+        showToast(`Error updating times: ${err.message}`);
       }
+    }
+
+    function onWakeTimeChanged() {
+      const wakeVal = document.getElementById('wake-time-input').value;
+      updateDayMeta({ wake_time: wakeVal ? timeStrToMin(wakeVal) : null });
+    }
+
+    function onSleepTimeChanged() {
+      const sleepVal = document.getElementById('sleep-time-input').value;
+      updateDayMeta({ sleep_time: sleepVal ? timeStrToMin(sleepVal) : null });
+    }
+
+    function clearWakeTime() {
+      document.getElementById('wake-time-input').value = '';
+      updateDayMeta({ wake_time: null });
+    }
+
+    function clearSleepTime() {
+      document.getElementById('sleep-time-input').value = '';
+      updateDayMeta({ sleep_time: null });
     }
 
     // -------------------------------------------------------------------
@@ -1606,69 +1770,177 @@
     // -------------------------------------------------------------------
     const PX_PER_MINUTE = 52 / 60; // 52px per 60min
 
-    function initTimelineAxis() {
+    function getTimelineBounds(dayData) {
+      const isFocused = STATE.timelineMode === 'focused';
+      const wake = dayData ? dayData.wake_time : null;
+      const sleep = dayData ? dayData.sleep_time : null;
+
+      let startHour = 0;
+      let endHour = 24;
+
+      // Detect block extremities so blocks are never clipped
+      let maxBlockHour = 24;
+      let minBlockHour = 24;
+      if (dayData && dayData.blocks && dayData.blocks.length > 0) {
+        for (const b of dayData.blocks) {
+          if (b.meta && b.meta.needs_time) continue;
+          const bhEnd = Math.ceil(b.end_min / 60);
+          const bhStart = Math.floor(b.start_min / 60);
+          if (bhEnd > maxBlockHour) maxBlockHour = bhEnd;
+          if (bhStart < minBlockHour) minBlockHour = bhStart;
+        }
+      }
+
+      if (isFocused) {
+        if (wake !== null) {
+          startHour = Math.floor(wake / 60);
+        } else {
+          startHour = 8;
+        }
+        if (minBlockHour < startHour) startHour = minBlockHour;
+        if (startHour > 20) startHour = 20;
+
+        if (sleep !== null) {
+          if (wake !== null && sleep < wake) {
+            // Past midnight sleep: e.g. 01:30 is 24 + 2 = 26
+            endHour = 24 + Math.ceil(sleep / 60);
+          } else {
+            endHour = Math.ceil(sleep / 60);
+          }
+        } else {
+          endHour = 24;
+        }
+        if (maxBlockHour > endHour) endHour = maxBlockHour;
+        if (endHour <= startHour) endHour = startHour + 8;
+      } else {
+        // Full 24h mode: at least 0 to 24, extend if bedtime or blocks go past midnight
+        startHour = 0;
+        endHour = 24;
+        if (sleep !== null && wake !== null && sleep < wake) {
+          const sleepPastMidnightHour = 24 + Math.ceil(sleep / 60);
+          if (sleepPastMidnightHour > endHour) endHour = sleepPastMidnightHour;
+        }
+        if (maxBlockHour > endHour) endHour = maxBlockHour;
+      }
+
+      return { startHour, endHour, isFocused, wake, sleep };
+    }
+
+    function initTimelineAxis(bounds) {
+      if (!bounds) bounds = { startHour: 0, endHour: 24, isFocused: false };
       const axis = document.getElementById('timeline-axis');
       const grid = document.getElementById('timeline-gridlines');
+      const canvas = document.getElementById('timeline-canvas');
+      if (!axis || !grid || !canvas) return;
+
       axis.innerHTML = '';
       grid.innerHTML = '';
 
-      for (let h = 0; h <= 24; h++) {
+      const totalHours = bounds.endHour - bounds.startHour;
+      const totalHeightPx = totalHours * 52;
+      canvas.style.height = `${totalHeightPx}px`;
+      axis.style.height = `${totalHeightPx}px`;
+
+      for (let h = bounds.startHour; h <= bounds.endHour; h++) {
         const label = document.createElement('div');
         label.className = 'hour-marker';
-        label.innerText = `${String(h % 24).padStart(2, '0')}:00`;
+        if (h === bounds.endHour) {
+          label.style.height = '0px';
+        } else {
+          label.style.height = '52px';
+        }
+        let labelText = '';
+        if (h >= 24) {
+          labelText = `${String(h - 24).padStart(2, '0')}:00 (+1)`;
+        } else {
+          labelText = `${String(h).padStart(2, '0')}:00`;
+        }
+        label.innerText = labelText;
         axis.appendChild(label);
 
+        const relH = h - bounds.startHour;
         const line = document.createElement('div');
         line.className = `hour-gridline ${h % 4 === 0 ? 'major' : ''}`;
-        line.style.top = `${h * 52}px`;
+        line.style.top = `${relH * 52}px`;
         grid.appendChild(line);
       }
     }
 
     function renderTimeline(dayData) {
+      const bounds = getTimelineBounds(dayData);
+      initTimelineAxis(bounds);
+
       const sleepZones = document.getElementById('sleep-zones');
       const blocksContainer = document.getElementById('timeline-blocks');
       const needsTimeContainer = document.getElementById('needs-time-container');
+      const topCapsule = document.getElementById('sleep-top-capsule-container');
+      const bottomCapsule = document.getElementById('sleep-bottom-capsule-container');
 
       sleepZones.innerHTML = '';
       blocksContainer.innerHTML = '';
       needsTimeContainer.innerHTML = '';
       needsTimeContainer.style.display = 'none';
 
-      // 1. Render Sleep Dimmed Zones
       const wake = dayData.wake_time;
       const sleep = dayData.sleep_time;
 
-      if (wake !== null && sleep !== null) {
-        if (sleep >= wake) {
+      // 1. Sleep Representation (Capsules in focused mode vs Overlays in 24h mode)
+      if (bounds.isFocused) {
+        // Focused mode: sleep is collapsed into sleek capsules outside the canvas
+        if (wake !== null) {
+          topCapsule.style.display = 'block';
+          topCapsule.innerHTML = `
+            <div class="sleep-crop-capsule">
+              <span>🌙 Woke up at <strong>${minToTimeStr(wake)}</strong></span>
+              <button class="sleep-crop-btn" onclick="setTimelineMode('full')">Show early hours</button>
+            </div>
+          `;
+        } else {
+          topCapsule.style.display = 'none';
+        }
+
+        if (sleep !== null) {
+          bottomCapsule.style.display = 'block';
+          const isPastMidnight = wake !== null && sleep < wake;
+          bottomCapsule.innerHTML = `
+            <div class="sleep-crop-capsule">
+              <span>💤 Went to sleep at <strong>${minToTimeStr(sleep)}</strong> ${isPastMidnight ? '<span class="pill-next-day">🌙 +1 day</span>' : ''}</span>
+              <button class="sleep-crop-btn" onclick="setTimelineMode('full')">Show 24h grid</button>
+            </div>
+          `;
+        } else {
+          bottomCapsule.style.display = 'none';
+        }
+      } else {
+        // Full mode: hide capsules, render dimmed zones on the 24h+ canvas
+        topCapsule.style.display = 'none';
+        bottomCapsule.style.display = 'none';
+
+        if (wake !== null) {
           // Pre-wake zone: [0, wake]
           if (wake > 0) {
             const z1 = document.createElement('div');
             z1.className = 'sleep-overlay';
             z1.style.top = '0px';
             z1.style.height = `${wake * PX_PER_MINUTE}px`;
-            z1.innerHTML = '<span class="sleep-overlay-label">Asleep</span>';
+            z1.innerHTML = `<span class="sleep-overlay-label">Asleep (until ${minToTimeStr(wake)})</span>`;
             sleepZones.appendChild(z1);
           }
-          // Post-sleep zone: [sleep, 1440]
-          if (sleep < 1440) {
+        }
+
+        if (sleep !== null) {
+          let sleepStartMin = sleep;
+          if (wake !== null && sleep < wake) {
+            sleepStartMin = 1440 + sleep; // past midnight sleep
+          }
+          const endCanvasMin = bounds.endHour * 60;
+          if (sleepStartMin < endCanvasMin) {
             const z2 = document.createElement('div');
             z2.className = 'sleep-overlay';
-            z2.style.top = `${sleep * PX_PER_MINUTE}px`;
-            z2.style.height = `${(1440 - sleep) * PX_PER_MINUTE}px`;
-            z2.innerHTML = '<span class="sleep-overlay-label">Asleep</span>';
+            z2.style.top = `${sleepStartMin * PX_PER_MINUTE}px`;
+            z2.style.height = `${(endCanvasMin - sleepStartMin) * PX_PER_MINUTE}px`;
+            z2.innerHTML = `<span class="sleep-overlay-label">Asleep (from ${minToTimeStr(sleep)}${sleep < (wake || 1440) ? ' +1d' : ''})</span>`;
             sleepZones.appendChild(z2);
-          }
-        } else {
-          // Slept past midnight (e.g. wake 480 [08:00], sleep 90 [01:30])
-          // On this calendar day, pre-wake interval [0, wake] was asleep!
-          if (wake > 0) {
-            const z = document.createElement('div');
-            z.className = 'sleep-overlay';
-            z.style.top = '0px';
-            z.style.height = `${wake * PX_PER_MINUTE}px`;
-            z.innerHTML = '<span class="sleep-overlay-label">Asleep</span>';
-            sleepZones.appendChild(z);
           }
         }
       }
@@ -1709,7 +1981,7 @@
         const blockEl = document.createElement('div');
         blockEl.className = 'timeline-block';
         
-        const topPx = b.start_min * PX_PER_MINUTE;
+        const topPx = (b.start_min - bounds.startHour * 60) * PX_PER_MINUTE;
         const heightPx = Math.max(22, (b.end_min - b.start_min) * PX_PER_MINUTE);
         const colWidthPct = 100 / layout.totalCols;
         const leftPct = layout.colIndex * colWidthPct;
@@ -1723,10 +1995,11 @@
         blockEl.style.border = `1px solid ${tagColor}66`;
         blockEl.style.borderLeft = `4px solid ${tagColor}`;
 
+        const endFormatted = b.end_min >= 1440 ? `${minToTimeStr(b.end_min % 1440)} (+1)` : minToTimeStr(b.end_min);
         blockEl.innerHTML = `
           <div class="block-header">
             <span class="block-tag-badge" style="color: ${tagColor}">${escapeHtml(b.tag)}</span>
-            <span class="block-time-range">${minToTimeStr(b.start_min)}–${minToTimeStr(b.end_min)}</span>
+            <span class="block-time-range">${minToTimeStr(b.start_min % 1440)}–${endFormatted}</span>
           </div>
           ${b.label ? `<div class="block-label">${escapeHtml(b.label)}</div>` : ''}
         `;
@@ -1798,11 +2071,13 @@
       const selLabel = document.getElementById('drag-selection-label');
 
       function getCanvasMinutes(clientY) {
+        const bounds = getTimelineBounds(STATE.dayData);
         const rect = canvas.getBoundingClientRect();
         const y = Math.max(0, Math.min(clientY - rect.top, rect.height));
-        const minRaw = y / PX_PER_MINUTE;
+        const minRaw = (bounds.startHour * 60) + (y / PX_PER_MINUTE);
         // Snap to 15 minutes
-        return Math.min(1440, Math.max(0, Math.round(minRaw / 15) * 15));
+        const maxMin = bounds.endHour * 60;
+        return Math.min(maxMin, Math.max(bounds.startHour * 60, Math.round(minRaw / 15) * 15));
       }
 
       function onStart(clientY) {
@@ -1832,6 +2107,7 @@
       }
 
       function updateDragBox() {
+        const bounds = getTimelineBounds(STATE.dayData);
         const s = Math.min(dragStartMin, dragCurrentMin);
         const e = Math.max(dragStartMin, dragCurrentMin);
         if (e - s < 5) {
@@ -1839,9 +2115,10 @@
           return;
         }
         selBox.style.display = 'block';
-        selBox.style.top = `${s * PX_PER_MINUTE}px`;
+        selBox.style.top = `${(s - bounds.startHour * 60) * PX_PER_MINUTE}px`;
         selBox.style.height = `${(e - s) * PX_PER_MINUTE}px`;
-        selLabel.innerText = `${minToTimeStr(s)} - ${minToTimeStr(e)} (${formatMinutes(e - s)})`;
+        const endFormatted = e >= 1440 ? `${minToTimeStr(e % 1440)} (+1)` : minToTimeStr(e);
+        selLabel.innerText = `${minToTimeStr(s % 1440)} - ${endFormatted} (${formatMinutes(e - s)})`;
       }
 
       // Mouse events
@@ -1905,13 +2182,21 @@
       document.getElementById('block-modal-title').innerText = 'Add Activity Block';
       document.getElementById('block-delete-btn').style.display = 'none';
 
-      // Default time window: either passed in or 9:00 - 10:00
-      let s = startMin !== null ? startMin : 540;
-      let e = endMin !== null ? endMin : 600;
-      if (e <= s) e = Math.min(1440, s + 60);
+      const bounds = getTimelineBounds(STATE.dayData);
+      let s = startMin !== null ? startMin : (bounds.startHour * 60 + 60);
+      let e = endMin !== null ? endMin : (s + 60);
+      if (e <= s) e = s + 60;
 
-      document.getElementById('block-start-time').value = minToTimeStr(s);
-      document.getElementById('block-end-time').value = minToTimeStr(e);
+      const nextDayCb = document.getElementById('block-end-next-day');
+      if (e >= 1440) {
+        document.getElementById('block-end-time').value = minToTimeStr(e % 1440);
+        if (nextDayCb) nextDayCb.checked = true;
+      } else {
+        document.getElementById('block-end-time').value = minToTimeStr(e);
+        if (nextDayCb) nextDayCb.checked = false;
+      }
+
+      document.getElementById('block-start-time').value = minToTimeStr(s % 1440);
       document.getElementById('block-label-input').value = '';
 
       selectModalTag('Work');
@@ -1928,8 +2213,17 @@
       document.getElementById('block-modal-title').innerText = 'Edit Activity Block';
       document.getElementById('block-delete-btn').style.display = 'inline-block';
 
-      document.getElementById('block-start-time').value = minToTimeStr(block.start_min);
-      document.getElementById('block-end-time').value = minToTimeStr(block.end_min);
+      document.getElementById('block-start-time').value = minToTimeStr(block.start_min % 1440);
+
+      const nextDayCb = document.getElementById('block-end-next-day');
+      if (block.end_min > 1440) {
+        document.getElementById('block-end-time').value = minToTimeStr(block.end_min % 1440);
+        if (nextDayCb) nextDayCb.checked = true;
+      } else {
+        document.getElementById('block-end-time').value = minToTimeStr(block.end_min);
+        if (nextDayCb) nextDayCb.checked = false;
+      }
+
       document.getElementById('block-label-input').value = block.label || '';
 
       selectModalTag(block.tag);
@@ -1943,14 +2237,25 @@
     async function saveBlockModal() {
       const sVal = document.getElementById('block-start-time').value;
       const eVal = document.getElementById('block-end-time').value;
+      const nextDayCb = document.getElementById('block-end-next-day');
+      const nextDayChecked = nextDayCb ? nextDayCb.checked : false;
+
       if (!sVal || !eVal) {
         showToast('Please enter both start and end times');
         return;
       }
-      const startMin = timeStrToMin(sVal);
-      const endMin = timeStrToMin(eVal);
+      let startMin = timeStrToMin(sVal);
+      let endMin = timeStrToMin(eVal);
+
+      if (nextDayChecked) {
+        endMin += 1440;
+      } else if (endMin <= startMin && startMin >= 1200) {
+        // Auto-detect crossing midnight if start is late evening (>=20:00)
+        endMin += 1440;
+      }
+
       if (endMin <= startMin) {
-        showToast('End time must be after start time');
+        showToast('End time must be after start time (check "+1d" for next day)');
         return;
       }
 

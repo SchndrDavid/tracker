@@ -113,10 +113,10 @@ def validate_date(date_str: str) -> str:
     return date_str
 
 def validate_times(start_min: int, end_min: int):
-    if not (0 <= start_min <= 1440 and 0 <= end_min <= 1440):
+    if not (0 <= start_min <= 1800 and 0 <= end_min <= 1800):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="start_min and end_min must be between 0 and 1440."
+            detail="start_min and end_min must be between 0 and 1800."
         )
     if end_min <= start_min:
         raise HTTPException(
@@ -134,16 +134,24 @@ def validate_tag(tag: str):
 def compute_awake_minutes(wake_time: Optional[int], sleep_time: Optional[int]) -> int:
     """
     Computes awake minutes for a day.
-    If wake_time or sleep_time is missing: full 24h = 1440 min.
-    If sleep_time >= wake_time: sleep_time - wake_time.
-    If sleep_time < wake_time (slept past midnight): sleep_time + 1440 - wake_time.
+    - If both wake_time and sleep_time are set:
+        - If sleep_time >= wake_time: sleep_time - wake_time
+        - If sleep_time < wake_time (slept past midnight): sleep_time + 1440 - wake_time
+    - If only wake_time is set: 1440 - wake_time (morning sleep 0..wake_time is excluded)
+    - If only sleep_time is set: sleep_time (evening sleep sleep_time..1440 is excluded)
+    - If neither is set: full 24h = 1440 min.
     """
-    if wake_time is None or sleep_time is None:
-        return 1440
-    if sleep_time >= wake_time:
-        return sleep_time - wake_time
+    if wake_time is not None and sleep_time is not None:
+        if sleep_time >= wake_time:
+            return sleep_time - wake_time
+        else:
+            return sleep_time + 1440 - wake_time
+    elif wake_time is not None:
+        return 1440 - wake_time
+    elif sleep_time is not None:
+        return sleep_time
     else:
-        return sleep_time + 1440 - wake_time
+        return 1440
 
 def parse_meta(meta_val: Any) -> dict:
     if not meta_val:
@@ -898,6 +906,11 @@ def get_stats(
 
             if w_time is not None and s_time is not None:
                 sleep_durations.append(1440 - day_awake)
+            elif w_time is not None:
+                sleep_durations.append(w_time)
+            elif s_time is not None:
+                sleep_durations.append(1440 - s_time)
+
             if w_time is not None:
                 wake_times.append(w_time)
 

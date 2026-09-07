@@ -395,9 +395,45 @@ def main_test():
     print(f"Manual POST /api/watched -> HTTP {r_manual.status_code} {r_manual.json()}")
     assert r_manual.status_code == 201
 
+    # ---------------------------------------------------------------------
+    # 9. Independent Wake/Sleep & Past-Midnight Blocks
+    # ---------------------------------------------------------------------
+    print_section("9. Independent Wake/Sleep & Past-Midnight Blocks")
+    indep_date1 = "2026-09-10"
+    indep_date2 = "2026-09-11"
+
+    # 9a. Only wake_time set (morning sleep excluded immediately)
+    r_wake_only = client.post(f"/api/day/{indep_date1}", json={
+        "wake_time": 480,  # 08:00
+        "sleep_time": None
+    })
+    print(f"Wake only -> awake_time: {r_wake_only.json()['awake_time']}m (expected 960m)")
+    assert r_wake_only.json()["awake_time"] == 960
+
+    # 9b. Only sleep_time set (night sleep excluded immediately)
+    r_sleep_only = client.post(f"/api/day/{indep_date2}", json={
+        "wake_time": None,
+        "sleep_time": 1380  # 23:00
+    })
+    print(f"Sleep only -> awake_time: {r_sleep_only.json()['awake_time']}m (expected 1380m)")
+    assert r_sleep_only.json()["awake_time"] == 1380
+
+    # 9c. Past-midnight block (e.g. 23:30 to 01:30 next day -> 1410 to 1530)
+    r_late_block = client.post("/api/block", json={
+        "date": indep_date1,
+        "start_min": 1410,
+        "end_min": 1530,
+        "label": "Late night gaming session",
+        "tag": "Gaming"
+    })
+    print(f"Late night block -> HTTP {r_late_block.status_code}, duration: {r_late_block.json()['end_min'] - r_late_block.json()['start_min']}m")
+    assert r_late_block.status_code == 201
+    assert r_late_block.json()["end_min"] == 1530
+
     print("\n" + "=" * 70)
-    print("ALL 8 VERIFICATION REQUIREMENTS SUCCESSFULLY PASSED!")
+    print("ALL VERIFICATION REQUIREMENTS SUCCESSFULLY PASSED!")
     print("=" * 70)
 
 if __name__ == "__main__":
     main_test()
+
