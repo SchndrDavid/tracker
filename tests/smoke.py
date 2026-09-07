@@ -218,6 +218,19 @@ def main_test():
     print(f"POST unknown tag -> HTTP {r_bad_tag.status_code} {r_bad_tag.json()}")
     assert r_bad_tag.status_code == 400
 
+    # 3a2. Discord tag is valid
+    r_discord = client.post("/api/block", json={
+        "date": "2026-09-05",
+        "start_min": 1200,
+        "end_min": 1320,
+        "label": "Discord call with boys",
+        "tag": "Discord"
+    })
+    print(f"POST Discord tag -> HTTP {r_discord.status_code} {r_discord.json()['tag']}")
+    assert r_discord.status_code == 201
+    assert r_discord.json()["tag"] == "Discord"
+    client.delete(f"/api/block/{r_discord.json()['id']}")
+
     # 3b. end_min <= start_min
     r_bad_time = client.post("/api/block", json={
         "date": "2026-09-05",

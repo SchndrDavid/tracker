@@ -16,7 +16,7 @@ import httpx
 # Configuration & Constants
 # -------------------------------------------------------------------------
 
-TAGS = ["Work", "Gaming", "Chillin", "Study", "Gym", "Running"]
+TAGS = ["Work", "Gaming", "Chillin", "Study", "Gym", "Running", "Discord"]
 
 TAG_COLORS = {
     "Work": "#38bdf8",     # Sky blue
@@ -25,6 +25,7 @@ TAG_COLORS = {
     "Study": "#fbbf24",    # Amber gold
     "Gym": "#f43f5e",      # Rose red
     "Running": "#06b6d4",  # Cyan
+    "Discord": "#5865F2",  # Discord blurple
 }
 
 DATE_REGEX = re.compile(r"^\d{4}-\d{2}-\d{2}$")

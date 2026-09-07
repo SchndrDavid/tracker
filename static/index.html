@@ -891,6 +891,176 @@
       width: fit-content;
     }
 
+    /* Placement Sidebar & Time Slider */
+    .sidebar-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 1040;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .sidebar-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .placement-sidebar {
+      position: fixed;
+      top: 0;
+      right: -440px;
+      bottom: 0;
+      width: 410px;
+      max-width: 94vw;
+      background: rgba(15, 23, 42, 0.97);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-left: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: -12px 0 40px rgba(0, 0, 0, 0.65);
+      z-index: 1050;
+      display: flex;
+      flex-direction: column;
+      transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .placement-sidebar.open {
+      right: 0;
+    }
+
+    .sidebar-header {
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .sidebar-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .sidebar-footer {
+      padding: 16px 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      gap: 10px;
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .sidebar-summary-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-md);
+      padding: 14px;
+    }
+
+    .placement-time-display {
+      background: linear-gradient(135deg, rgba(236, 72, 153, 0.14), rgba(88, 101, 242, 0.14));
+      border: 1px solid rgba(236, 72, 153, 0.35);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    .placement-time-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+    .placement-time-range {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #fff;
+      margin: 4px 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .placement-time-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .time-range-slider {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+      margin: 12px 0 6px 0;
+    }
+    .time-range-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #ec4899;
+      border: 2px solid #fff;
+      box-shadow: 0 0 12px rgba(236, 72, 153, 0.85);
+      cursor: grab;
+      transition: transform 0.1s ease;
+    }
+    .time-range-slider::-webkit-slider-thumb:active {
+      cursor: grabbing;
+      transform: scale(1.2);
+    }
+    .time-range-slider::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #ec4899;
+      border: 2px solid #fff;
+      box-shadow: 0 0 12px rgba(236, 72, 153, 0.85);
+      cursor: grab;
+    }
+
+    .btn-preset-pill {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius-pill);
+      color: var(--text-color);
+      font-size: 11px;
+      padding: 5px 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-weight: 500;
+    }
+    .btn-preset-pill:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .timeline-ghost-block {
+      position: absolute;
+      left: 3px;
+      width: calc(100% - 6px);
+      border-radius: var(--radius-sm);
+      pointer-events: none;
+      z-index: 25;
+      padding: 6px 10px;
+      box-sizing: border-box;
+      transition: top 0.05s ease, height 0.05s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      animation: pulseGhost 1.8s infinite alternate;
+    }
+    @keyframes pulseGhost {
+      0% { opacity: 0.7; transform: scale(0.995); }
+      100% { opacity: 0.95; transform: scale(1); }
+    }
+
     /* Stats Screen Styles */
     .stats-header {
       display: flex;
@@ -1840,6 +2010,95 @@
     </div>
   </div>
 
+  <!-- Time Placement Sidebar & Slider -->
+  <div id="placement-sidebar-backdrop" class="sidebar-backdrop" onclick="closePlacementSidebar()"></div>
+  <aside id="placement-sidebar" class="placement-sidebar">
+    <div class="sidebar-header">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 18px;">⏱️</span>
+        <h3 style="font-size: 16px; font-weight: 700; margin: 0;">Place on Timeline</h3>
+      </div>
+      <button class="btn-icon" onclick="closePlacementSidebar()" title="Close sidebar" style="width: 28px; height: 28px; font-size: 14px;">✕</button>
+    </div>
+
+    <div class="sidebar-body">
+      <!-- Activity Summary Card -->
+      <div class="sidebar-summary-card">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+          <div style="font-weight: 700; font-size: 15px; color: var(--text-color);" id="placement-game-title">Game Title</div>
+          <span class="pill-duration" id="placement-duration-pill">90m</span>
+        </div>
+        <div style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">
+          Use the slider below to position this activity on your day.
+        </div>
+      </div>
+
+      <!-- Tag Picker -->
+      <div class="form-group" style="margin-top: 4px;">
+        <label class="form-label" style="font-size: 12px;">Tag / Activity</label>
+        <div class="tag-picker-grid" id="placement-tag-picker" style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Live Time Display Box -->
+      <div class="placement-time-display">
+        <div class="placement-time-label">Selected Time Window</div>
+        <div class="placement-time-range" id="placement-time-range-text">17:24 – 18:54</div>
+        <div class="placement-time-sub" id="placement-time-sub">1h 30m · Ends at current time</div>
+      </div>
+
+      <!-- Time Slider Control -->
+      <div class="form-group" style="margin-top: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+          <label class="form-label" style="font-size: 12px; margin-bottom: 0;">🕒 Slide Time of Day</label>
+          <span id="placement-slider-val-label" style="font-size: 12px; font-weight: 600; color: #ec4899;">17:24</span>
+        </div>
+        <input type="range" id="placement-slider" class="time-range-slider" min="0" max="1440" step="5" oninput="onPlacementSliderChange(this.value)">
+        <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-top: 2px;">
+          <span id="placement-slider-min-lbl">00:00</span>
+          <span id="placement-slider-mid-lbl">12:00</span>
+          <span id="placement-slider-max-lbl">24:00</span>
+        </div>
+      </div>
+
+      <!-- Quick Presets -->
+      <div class="form-group" style="margin-top: 4px;">
+        <label class="form-label" style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Quick Presets</label>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <button type="button" class="btn-preset-pill" onclick="setPlacementPreset('now')" title="Finished right now">⚡ Finished Now</button>
+          <button type="button" class="btn-preset-pill" onclick="setPlacementPreset('after_last')" title="Right after the last activity">⏮️ After Last Block</button>
+          <button type="button" class="btn-preset-pill" onclick="setPlacementPreset('morning')">🌅 Morning (10:00)</button>
+          <button type="button" class="btn-preset-pill" onclick="setPlacementPreset('afternoon')">☀️ Afternoon (15:00)</button>
+          <button type="button" class="btn-preset-pill" onclick="setPlacementPreset('evening')">🌙 Evening (20:00)</button>
+        </div>
+      </div>
+
+      <!-- Fine Tune Time Inputs -->
+      <div style="display: flex; gap: 10px; margin-top: 6px;">
+        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+          <label class="form-label" style="font-size: 11px;" for="placement-start-input">Start Time</label>
+          <input type="time" id="placement-start-input" class="form-control" onchange="onPlacementTimeInputChange()">
+        </div>
+        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+          <label class="form-label" style="font-size: 11px;" for="placement-end-input">End Time</label>
+          <input type="time" id="placement-end-input" class="form-control" onchange="onPlacementTimeInputChange()">
+        </div>
+      </div>
+
+      <!-- Label / Description Input -->
+      <div class="form-group" style="margin-top: 6px; margin-bottom: 0;">
+        <label class="form-label" style="font-size: 11px;" for="placement-label-input">Label / Description</label>
+        <input type="text" id="placement-label-input" class="form-control" placeholder="Activity label...">
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="btn-secondary" onclick="closePlacementSidebar()" style="flex: 1;">Cancel</button>
+      <button class="btn-primary" onclick="confirmPlacementSave()" style="flex: 2;">💾 Save to Timeline</button>
+    </div>
+  </aside>
+
   <!-- Toast notifications container -->
   <div class="toast-container" id="toast-container"></div>
 
@@ -1854,14 +2113,15 @@
     const STATE = {
       currentDate: getTodayString(),
       view: 'day',             // 'day' | 'stats'
-      tags: ["Work", "Gaming", "Chillin", "Study", "Gym", "Running"],
+      tags: ["Work", "Gaming", "Chillin", "Study", "Gym", "Running", "Discord"],
       colors: {
         "Work": "#38bdf8",
         "Gaming": "#a855f7",
         "Chillin": "#34d399",
         "Study": "#fbbf24",
         "Gym": "#f43f5e",
-        "Running": "#06b6d4"
+        "Running": "#06b6d4",
+        "Discord": "#5865F2"
       },
       dayData: null,
       statsPeriod: 'week',     // 'week' | 'month'
@@ -1873,7 +2133,8 @@
       noteSaveTimeout: null,
       jfSearchTimeout: null,
       selectedGame: null,
-      gameSearchTimeout: null
+      gameSearchTimeout: null,
+      placementState: null
     };
 
     // -------------------------------------------------------------------
@@ -3201,21 +3462,279 @@
       }
     }
 
+    // -------------------------------------------------------------------
+    // Placement Sidebar & Time Slider
+    // -------------------------------------------------------------------
     function addGameToTimeline(gameName, minutes) {
-      const bounds = getTimelineBounds(STATE.dayData);
-      let s = bounds.startHour * 60 + 60;
-      if (STATE.dayData && STATE.dayData.blocks && STATE.dayData.blocks.length > 0) {
-        const maxEnd = Math.max(...STATE.dayData.blocks.map(b => b.end_min));
-        if (maxEnd > 0 && maxEnd < bounds.endHour * 60) {
-          s = maxEnd;
+      openPlacementSidebar(gameName, minutes, 'Gaming');
+    }
+
+    function openPlacementSidebar(title, minutes, defaultTag = 'Gaming') {
+      const dur = Math.max(5, parseInt(minutes) || 60);
+      const isToday = STATE.currentDate === getTodayString();
+
+      // Calculate initial start & end time: GO BACKWARD FROM NOW IF TODAY!
+      let startMin, endMin;
+      if (isToday) {
+        const now = new Date();
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        endMin = nowMin;
+        startMin = Math.max(0, endMin - dur);
+        if (startMin + dur > 1440) {
+          endMin = 1440;
+          startMin = Math.max(0, endMin - dur);
+        }
+      } else {
+        // For past days, default to after the last block or late afternoon
+        if (STATE.dayData && STATE.dayData.blocks && STATE.dayData.blocks.length > 0) {
+          const maxEnd = Math.max(...STATE.dayData.blocks.map(b => b.end_min));
+          if (maxEnd > 0 && maxEnd + dur <= 1440) {
+            startMin = maxEnd;
+            endMin = startMin + dur;
+          } else {
+            startMin = 18 * 60;
+            endMin = Math.min(1440, startMin + dur);
+          }
+        } else {
+          startMin = 18 * 60;
+          endMin = startMin + dur;
         }
       }
-      let e = s + minutes;
 
-      openAddBlockModal(s, e);
-      document.getElementById('block-label-input').value = gameName;
-      selectModalTag('Gaming');
-      showToast(`Ready to place "${gameName}" (${formatMinutes(minutes)}) on timeline`);
+      STATE.placementState = {
+        title: title || 'Activity',
+        duration: dur,
+        tag: defaultTag || 'Gaming',
+        startMin: startMin,
+        endMin: endMin
+      };
+
+      document.getElementById('placement-game-title').innerText = title || 'Activity';
+      document.getElementById('placement-duration-pill').innerText = formatMinutes(dur);
+      document.getElementById('placement-label-input').value = title || '';
+
+      // Initialize tag picker in sidebar
+      renderPlacementTagPicker();
+
+      // Setup slider bounds
+      const slider = document.getElementById('placement-slider');
+      slider.min = 0;
+      slider.max = Math.max(0, 1440 - dur);
+      slider.step = 5;
+      slider.value = startMin;
+
+      // Update time display labels
+      document.getElementById('placement-slider-min-lbl').innerText = '00:00';
+      document.getElementById('placement-slider-mid-lbl').innerText = '12:00';
+      document.getElementById('placement-slider-max-lbl').innerText = minToTimeStr(1440 - dur);
+
+      updatePlacementUI();
+
+      // Open sidebar and backdrop
+      document.getElementById('placement-sidebar-backdrop').classList.add('open');
+      document.getElementById('placement-sidebar').classList.add('open');
+      showToast(`Slide time window for "${title}" (${formatMinutes(dur)})`);
+    }
+
+    function closePlacementSidebar() {
+      document.getElementById('placement-sidebar-backdrop').classList.remove('open');
+      document.getElementById('placement-sidebar').classList.remove('open');
+      removeTimelineGhost();
+      STATE.placementState = null;
+    }
+
+    function renderPlacementTagPicker() {
+      const container = document.getElementById('placement-tag-picker');
+      if (!container) return;
+      container.innerHTML = '';
+
+      for (const tag of STATE.tags) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        const color = STATE.colors[tag] || '#38bdf8';
+        const isSelected = STATE.placementState && STATE.placementState.tag === tag;
+        btn.className = `tag-btn ${isSelected ? 'active' : ''}`;
+        btn.style.color = color;
+        btn.innerHTML = `<span style="width: 8px; height: 8px; border-radius: 50%; background: ${color};"></span> ${tag}`;
+        btn.onclick = () => selectPlacementTag(tag);
+        container.appendChild(btn);
+      }
+    }
+
+    function selectPlacementTag(tag) {
+      if (!STATE.placementState) return;
+      STATE.placementState.tag = tag;
+      const btns = document.querySelectorAll('#placement-tag-picker .tag-btn');
+      btns.forEach(b => {
+        b.classList.toggle('active', b.innerText.trim() === tag);
+      });
+      updatePlacementUI();
+    }
+
+    function onPlacementSliderChange(val) {
+      if (!STATE.placementState) return;
+      const s = parseInt(val, 10);
+      const e = s + STATE.placementState.duration;
+      STATE.placementState.startMin = s;
+      STATE.placementState.endMin = e;
+      updatePlacementUI();
+    }
+
+    function onPlacementTimeInputChange() {
+      if (!STATE.placementState) return;
+      const sVal = document.getElementById('placement-start-input').value;
+      const eVal = document.getElementById('placement-end-input').value;
+      if (!sVal) return;
+
+      const s = timeStrToMin(sVal);
+      let e = eVal ? timeStrToMin(eVal) : (s + STATE.placementState.duration);
+      if (e <= s) e = s + STATE.placementState.duration;
+
+      STATE.placementState.startMin = s;
+      STATE.placementState.endMin = e;
+      STATE.placementState.duration = e - s;
+      document.getElementById('placement-duration-pill').innerText = formatMinutes(e - s);
+
+      const slider = document.getElementById('placement-slider');
+      slider.max = Math.max(0, 1440 - (e - s));
+      slider.value = s;
+
+      updatePlacementUI();
+    }
+
+    function setPlacementPreset(preset) {
+      if (!STATE.placementState) return;
+      const dur = STATE.placementState.duration;
+      let s, e;
+
+      if (preset === 'now') {
+        const now = new Date();
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        e = nowMin;
+        s = Math.max(0, e - dur);
+      } else if (preset === 'after_last') {
+        let lastEnd = 9 * 60;
+        if (STATE.dayData && STATE.dayData.blocks && STATE.dayData.blocks.length > 0) {
+          lastEnd = Math.max(...STATE.dayData.blocks.map(b => b.end_min));
+        }
+        s = Math.min(1440 - dur, lastEnd);
+        e = s + dur;
+      } else if (preset === 'morning') {
+        s = 10 * 60;
+        e = s + dur;
+      } else if (preset === 'afternoon') {
+        s = 15 * 60;
+        e = s + dur;
+      } else if (preset === 'evening') {
+        s = 20 * 60;
+        e = s + dur;
+      }
+
+      STATE.placementState.startMin = s;
+      STATE.placementState.endMin = e;
+
+      const slider = document.getElementById('placement-slider');
+      slider.value = s;
+
+      updatePlacementUI();
+    }
+
+    function updatePlacementUI() {
+      if (!STATE.placementState) return;
+      const { startMin, endMin, duration, tag, title } = STATE.placementState;
+
+      const sFormatted = minToTimeStr(startMin % 1440);
+      const eFormatted = endMin >= 1440 ? `${minToTimeStr(endMin % 1440)} (+1)` : minToTimeStr(endMin % 1440);
+
+      document.getElementById('placement-time-range-text').innerText = `${sFormatted} – ${eFormatted}`;
+      document.getElementById('placement-slider-val-label').innerText = sFormatted;
+
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      let subDesc = formatMinutes(duration);
+      if (Math.abs(endMin - nowMin) < 5 && STATE.currentDate === getTodayString()) {
+        subDesc += ' · Ends right now';
+      }
+      document.getElementById('placement-time-sub').innerText = subDesc;
+
+      // Update inputs without recursive trigger
+      document.getElementById('placement-start-input').value = minToTimeStr(startMin % 1440);
+      document.getElementById('placement-end-input').value = minToTimeStr(endMin % 1440);
+
+      // Update ghost block on timeline
+      const label = document.getElementById('placement-label-input').value || title;
+      updateTimelineGhost(startMin, endMin, tag, label);
+    }
+
+    function updateTimelineGhost(startMin, endMin, tag, label) {
+      const blocksContainer = document.getElementById('timeline-blocks-container');
+      if (!blocksContainer) return;
+
+      let ghost = document.getElementById('timeline-ghost-block');
+      if (!ghost) {
+        ghost = document.createElement('div');
+        ghost.id = 'timeline-ghost-block';
+        ghost.className = 'timeline-ghost-block';
+        blocksContainer.appendChild(ghost);
+      }
+
+      const tagColor = STATE.colors[tag] || '#ec4899';
+      const bounds = getTimelineBounds(STATE.dayData);
+      const sHour = STATE.timelineMode === 'full' ? 0 : bounds.startHour;
+      const eHour = STATE.timelineMode === 'full' ? 24 : bounds.endHour;
+      const totalMins = (eHour - sHour) * 60;
+      const totalHeightPx = (eHour - sHour) * 60; // 1px per min
+
+      const topPx = Math.max(0, ((startMin - sHour * 60) / totalMins) * totalHeightPx);
+      const heightPx = Math.max(26, ((endMin - startMin) / totalMins) * totalHeightPx);
+
+      ghost.style.top = `${topPx}px`;
+      ghost.style.height = `${heightPx}px`;
+      ghost.style.border = `2px dashed ${tagColor}`;
+      ghost.style.background = `${tagColor}30`;
+      ghost.style.boxShadow = `0 0 16px ${tagColor}40`;
+
+      const sFormatted = minToTimeStr(startMin % 1440);
+      const eFormatted = endMin >= 1440 ? `${minToTimeStr(endMin % 1440)} (+1)` : minToTimeStr(endMin % 1440);
+
+      ghost.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
+          <strong style="color: ${tagColor}; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(label)}</strong>
+          <span style="font-size: 11px; opacity: 0.9; font-weight: 600;">${sFormatted}–${eFormatted}</span>
+        </div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-top: 1px;">📍 Placement preview</div>
+      `;
+    }
+
+    function removeTimelineGhost() {
+      const ghost = document.getElementById('timeline-ghost-block');
+      if (ghost) ghost.remove();
+    }
+
+    async function confirmPlacementSave() {
+      if (!STATE.placementState) return;
+      const { startMin, endMin, tag } = STATE.placementState;
+      const label = document.getElementById('placement-label-input').value.trim() || STATE.placementState.title;
+
+      try {
+        await apiRequest('/api/block', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: STATE.currentDate,
+            start_min: startMin,
+            end_min: endMin,
+            label: label,
+            tag: tag,
+            source: 'steam'
+          })
+        });
+        showToast(`Added "${label}" to timeline (${minToTimeStr(startMin % 1440)}–${minToTimeStr(endMin % 1440)})`);
+        closePlacementSidebar();
+        loadDay(STATE.currentDate);
+      } catch (err) {
+        showToast(`Failed to place: ${err.message}`);
+      }
     }
 
     // Manual Game Modal & Game Search
