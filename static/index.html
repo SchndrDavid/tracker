@@ -1471,6 +1471,7 @@
             </p>
           </div>
           <div style="display: flex; gap: 8px;">
+            <button class="btn-pill" onclick="triggerJellyfinSync()" title="Sync watched movies and episodes from Jellyfin">⚡ Sync Jellyfin</button>
             <button class="btn-pill" onclick="openJellyfinModal()">+ Add from Jellyfin</button>
             <button class="btn-pill" onclick="openManualWatchedModal()">+ Add Manually</button>
           </div>
@@ -1751,9 +1752,15 @@
           <label class="form-label" for="settings-jellyfin-url" style="font-size: 11px;">Jellyfin URL</label>
           <input type="text" id="settings-jellyfin-url" class="form-control" placeholder="http://jellyfin:8096">
         </div>
-        <div class="form-group" style="margin-bottom: 0;">
+        <div class="form-group" style="margin-bottom: 8px;">
           <label class="form-label" for="settings-jellyfin-key" style="font-size: 11px;">Jellyfin API Token</label>
           <input type="password" id="settings-jellyfin-key" class="form-control" placeholder="API token">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="settings-jellyfin-user" style="font-size: 11px;">User Profile to Sync</label>
+          <select id="settings-jellyfin-user" class="form-control" style="font-size: 13px;">
+            <option value="">Auto-detect (mordor67 / Admin)</option>
+          </select>
         </div>
       </div>
 
@@ -1925,6 +1932,9 @@
 
         // Render GymTrack workouts
         renderGymTrackWorkouts(data.blocks || []);
+
+        // Silent Jellyfin sync
+        silentJellyfinSync(dateStr);
 
         // Check if day has gymtrack blocks; if none, attempt silent auto-sync
         const hasGymTrack = data.blocks.some(b => b.source === 'gymtrack');
@@ -2642,6 +2652,33 @@
       }
     }
 
+    async function triggerJellyfinSync() {
+      showToast('Syncing Jellyfin playback history...');
+      try {
+        const res = await apiRequest('/api/sync/jellyfin', { method: 'POST' });
+        showToast(`Jellyfin synced: ${res.created} new titles recorded (${res.synced} checked for ${res.user})`);
+        loadWatched(STATE.currentDate);
+      } catch (err) {
+        if (err.message && err.message.includes('not configured')) {
+          showToast('Jellyfin not configured. Opening Settings...');
+          openSettingsModal();
+        } else {
+          showToast(`Jellyfin sync failed: ${err.message}`);
+        }
+      }
+    }
+
+    async function silentJellyfinSync(dateStr) {
+      try {
+        const res = await apiRequest('/api/sync/jellyfin', { method: 'POST' });
+        if (res.created > 0) {
+          loadWatched(dateStr);
+        }
+      } catch (err) {
+        // Silent fail: do not interrupt user if Jellyfin is temporarily offline
+      }
+    }
+
     // Jellyfin Modal
     function openJellyfinModal() {
       document.getElementById('jf-search-input').value = '';
@@ -3095,6 +3132,23 @@
         if (conf.jellyfin_url) {
           document.getElementById('settings-jellyfin-url').value = conf.jellyfin_url;
         }
+
+        const userSelect = document.getElementById('settings-jellyfin-user');
+        if (userSelect) {
+          userSelect.innerHTML = '<option value="">Auto-detect (mordor67 / Admin)</option>';
+          try {
+            const uData = await apiRequest('/api/jellyfin/users');
+            for (const u of (uData.users || [])) {
+              const opt = document.createElement('option');
+              opt.value = u.id;
+              opt.innerText = `${u.name}${u.is_admin ? ' (Admin)' : ''}`;
+              if (conf.jellyfin_user_id === u.id || (!conf.jellyfin_user_id && u.name.toLowerCase() === 'mordor67')) {
+                opt.selected = true;
+              }
+              userSelect.appendChild(opt);
+            }
+          } catch(e) {}
+        }
       } catch (e) {}
     }
 
@@ -3107,12 +3161,15 @@
       const steamId = document.getElementById('settings-steam-id').value.trim();
       const jfUrl = document.getElementById('settings-jellyfin-url').value.trim();
       const jfKey = document.getElementById('settings-jellyfin-key').value.trim();
+      const jfUserSelect = document.getElementById('settings-jellyfin-user');
+      const jfUser = jfUserSelect ? jfUserSelect.value : '';
 
       const payload = {};
       if (steamKey) payload.steam_api_key = steamKey;
       if (steamId) payload.steam_id = steamId;
       if (jfUrl) payload.jellyfin_url = jfUrl;
       if (jfKey) payload.jellyfin_api_key = jfKey;
+      if (jfUser !== undefined) payload.jellyfin_user_id = jfUser;
 
       try {
         await apiRequest('/api/settings', {

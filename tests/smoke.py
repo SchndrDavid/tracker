@@ -45,6 +45,44 @@ class FakeGymTrackHandler(BaseHTTPRequestHandler):
                 ]
             }
             self.wfile.write(json.dumps(data).encode("utf-8"))
+        elif self.path == "/Users":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            data = [
+                {"Id": "u-admin", "Name": "mordor67", "Policy": {"IsAdministrator": True}},
+                {"Id": "u-bubu", "Name": "bubu", "Policy": {"IsAdministrator": False}}
+            ]
+            self.wfile.write(json.dumps(data).encode("utf-8"))
+        elif self.path.startswith("/Users/") and "/Items" in self.path:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            data = {
+                "Items": [
+                    {
+                        "Id": "jf-item-101",
+                        "Name": "OutKast",
+                        "Type": "Episode",
+                        "SeriesName": "Lanterns",
+                        "ParentIndexNumber": 1,
+                        "IndexNumber": 3,
+                        "UserData": {
+                            "LastPlayedDate": "2026-09-06T12:56:41.0000000Z"
+                        }
+                    },
+                    {
+                        "Id": "jf-item-102",
+                        "Name": "Supergirl",
+                        "Type": "Movie",
+                        "ProductionYear": 2026,
+                        "UserData": {
+                            "LastPlayedDate": "2026-09-06T09:00:34.0000000Z"
+                        }
+                    }
+                ]
+            }
+            self.wfile.write(json.dumps(data).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
@@ -482,6 +520,50 @@ def main_test():
 
     r_day_steam2 = client.get(f"/api/day/{steam_date}")
     assert len(r_day_steam2.json().get("steam_games", [])) == 0
+
+    # ---------------------------------------------------------------------
+    # 11. Jellyfin Users & Automated Playback History Sync
+    # ---------------------------------------------------------------------
+    print_section("11. Jellyfin Users & Automated Playback History Sync")
+    
+    # Configure fake server as Jellyfin endpoint
+    client.post("/api/settings", json={
+        "jellyfin_url": f"http://127.0.0.1:{server_port}",
+        "jellyfin_api_key": "test-key"
+    })
+
+    # 11a. Fetch Jellyfin users
+    r_users = client.get("/api/jellyfin/users")
+    print(f"GET /api/jellyfin/users -> HTTP {r_users.status_code}")
+    assert r_users.status_code == 200
+    users_list = r_users.json().get("users", [])
+    print(f"Users found: {[u['name'] for u in users_list]}")
+    assert len(users_list) == 2
+    assert users_list[0]["name"] == "mordor67"
+    assert users_list[0]["is_admin"] is True
+
+    # 11b. First Sync -> 2 items created (Lanterns episode & Supergirl movie)
+    r_jf_sync1 = client.post("/api/sync/jellyfin")
+    print(f"First POST /api/sync/jellyfin -> HTTP {r_jf_sync1.status_code} {r_jf_sync1.json()}")
+    assert r_jf_sync1.status_code == 200
+    assert r_jf_sync1.json()["created"] == 2
+    assert r_jf_sync1.json()["user"] == "mordor67"
+
+    # 11c. Idempotence / Repeat Sync -> 0 items created
+    r_jf_sync2 = client.post("/api/sync/jellyfin")
+    print(f"Repeat POST /api/sync/jellyfin -> HTTP {r_jf_sync2.status_code} {r_jf_sync2.json()}")
+    assert r_jf_sync2.status_code == 200
+    assert r_jf_sync2.json()["created"] == 0
+
+    # 11d. Verify in GET /api/watched/2026-09-06
+    r_watched_sync = client.get("/api/watched/2026-09-06")
+    assert r_watched_sync.status_code == 200
+    watched_items = r_watched_sync.json()
+    print(f"GET /api/watched/2026-09-06 -> {len(watched_items)} items")
+    titles = [w["title"] for w in watched_items]
+    print(f"Watched titles: {titles}")
+    assert any("Lanterns" in t for t in titles)
+    assert any("Supergirl" in t for t in titles)
 
     print("\n" + "=" * 70)
     print("ALL VERIFICATION REQUIREMENTS SUCCESSFULLY PASSED!")

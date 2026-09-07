@@ -298,6 +298,7 @@ class SettingsUpdateRequest(BaseModel):
     steam_id: Optional[str] = None
     jellyfin_api_key: Optional[str] = None
     jellyfin_url: Optional[str] = None
+    jellyfin_user_id: Optional[str] = None
     gymtrack_url: Optional[str] = None
 
 # -------------------------------------------------------------------------
@@ -776,6 +777,178 @@ async def jellyfin_image_proxy(item_id: str):
             detail="Unable to fetch image from Jellyfin."
         )
 
+@app.get("/api/jellyfin/users")
+async def jellyfin_users():
+    url, key = get_jellyfin_config()
+    target_url = f"{url}/Users"
+    headers = {"X-Emby-Token": key}
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(target_url, headers=headers)
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Jellyfin /Users returned status {resp.status_code}."
+                )
+            users_data = resp.json()
+            users = []
+            for u in users_data:
+                users.append({
+                    "id": u.get("Id"),
+                    "name": u.get("Name"),
+                    "is_admin": u.get("Policy", {}).get("IsAdministrator", False)
+                })
+            return {"users": users}
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to reach Jellyfin server."
+        )
+
+async def resolve_jellyfin_user(client: httpx.AsyncClient, url: str, key: str) -> tuple:
+    configured_id = get_setting("JELLYFIN_USER_ID", "").strip()
+    target_url = f"{url}/Users"
+    headers = {"X-Emby-Token": key}
+    resp = await client.get(target_url, headers=headers)
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Jellyfin /Users returned status {resp.status_code}."
+        )
+    users = resp.json()
+    if not users:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No users found on Jellyfin server."
+        )
+
+    if configured_id:
+        for u in users:
+            if u.get("Id") == configured_id or u.get("Name", "").lower() == configured_id.lower():
+                return u.get("Id"), u.get("Name", "")
+
+    # Priority: mordor67, then Administrator, then first user
+    for u in users:
+        if u.get("Name", "").lower() == "mordor67":
+            return u.get("Id"), u.get("Name", "")
+    for u in users:
+        if u.get("Policy", {}).get("IsAdministrator", False):
+            return u.get("Id"), u.get("Name", "")
+
+    return users[0].get("Id"), users[0].get("Name", "")
+
+@app.post("/api/sync/jellyfin")
+async def sync_jellyfin(user_id: Optional[str] = None):
+    url, key = get_jellyfin_config()
+    headers = {"X-Emby-Token": key}
+
+    try:
+        async with httpx.AsyncClient(timeout=12.0) as client:
+            if not user_id:
+                uid, user_name = await resolve_jellyfin_user(client, url, key)
+            else:
+                uid = user_id
+                user_name = user_id
+
+            target_url = f"{url}/Users/{uid}/Items"
+            params = {
+                "Filters": "IsPlayed",
+                "SortBy": "DatePlayed",
+                "SortOrder": "Descending",
+                "Limit": "50",
+                "Recursive": "true",
+                "Fields": "DateLastSaved,UserData,ProductionYear,SeriesName,SeasonName,IndexNumber,ParentIndexNumber"
+            }
+            resp = await client.get(target_url, params=params, headers=headers)
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Jellyfin playback query returned status {resp.status_code}."
+                )
+
+            data = resp.json()
+            items = data.get("Items", [])
+            created_count = 0
+
+            conn = get_db()
+            try:
+                with conn:
+                    for item in items:
+                        jellyfin_id = item.get("Id")
+                        user_data = item.get("UserData", {})
+                        last_played = user_data.get("LastPlayedDate")
+                        if not last_played:
+                            continue
+
+                        # Extract local date
+                        try:
+                            clean_ts = last_played[:19] + "+00:00"
+                            dt_utc = datetime.fromisoformat(clean_ts)
+                            dt_local = dt_utc.astimezone()
+                            item_date = dt_local.strftime("%Y-%m-%d")
+                        except Exception:
+                            item_date = last_played[:10]
+
+                        item_type = (item.get("Type") or "").lower()
+                        item_name = item.get("Name") or "Untitled"
+
+                        if item_type == "episode":
+                            kind = "episode"
+                            series_title = item.get("SeriesName") or "Series"
+                            s_num = item.get("ParentIndexNumber")
+                            e_num = item.get("IndexNumber")
+
+                            if s_num is not None and e_num is not None:
+                                ep_code = f"S{s_num:02d}E{e_num:02d}"
+                            elif e_num is not None:
+                                ep_code = f"E{e_num:02d}"
+                            else:
+                                ep_code = ""
+
+                            if ep_code:
+                                title = f"{series_title} {ep_code} - {item_name}"
+                            else:
+                                title = f"{series_title} - {item_name}"
+
+                            meta_dict = {}
+                            if s_num is not None:
+                                meta_dict["season"] = s_num
+                            if e_num is not None:
+                                meta_dict["episode"] = e_num
+                            meta_json = json.dumps(meta_dict) if meta_dict else None
+                        elif item_type == "movie":
+                            kind = "movie"
+                            series_title = None
+                            title = item_name
+                            year = item.get("ProductionYear")
+                            meta_json = json.dumps({"year": year}) if year else None
+                        else:
+                            kind = "other"
+                            series_title = item.get("SeriesName")
+                            title = item_name
+                            meta_json = None
+
+                        cursor = conn.execute("""
+                        INSERT OR IGNORE INTO watched (date, jellyfin_id, title, series_title, kind, meta)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """, (item_date, jellyfin_id, title, series_title, kind, meta_json))
+                        if cursor.rowcount > 0:
+                            created_count += 1
+
+                return {
+                    "synced": len(items),
+                    "created": created_count,
+                    "user": user_name
+                }
+            finally:
+                conn.close()
+
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to reach Jellyfin server."
+        )
+
 # -------------------------------------------------------------------------
 # GymTrack Sync Endpoint (Idempotent upsert & safe user_edited protection)
 # -------------------------------------------------------------------------
@@ -1095,6 +1268,7 @@ def get_settings():
     steam_id = get_setting("STEAM_ID", "")
     jf_key = get_setting("JELLYFIN_API_KEY", "")
     jf_url = get_setting("JELLYFIN_URL", "http://jellyfin:8096")
+    jf_user = get_setting("JELLYFIN_USER_ID", "")
     gt_url = get_setting("GYMTRACK_URL", "http://gymtrack:8000")
 
     return {
@@ -1103,6 +1277,7 @@ def get_settings():
         "steam_api_key_masked": f"{steam_key[:4]}...{steam_key[-4:]}" if len(steam_key) >= 8 else ("configured" if steam_key else ""),
         "jellyfin_configured": bool(jf_key),
         "jellyfin_url": jf_url,
+        "jellyfin_user_id": jf_user,
         "gymtrack_url": gt_url
     }
 
@@ -1116,6 +1291,8 @@ def update_settings(payload: SettingsUpdateRequest):
         set_setting("JELLYFIN_API_KEY", payload.jellyfin_api_key)
     if payload.jellyfin_url is not None:
         set_setting("JELLYFIN_URL", payload.jellyfin_url)
+    if payload.jellyfin_user_id is not None:
+        set_setting("JELLYFIN_USER_ID", payload.jellyfin_user_id)
     if payload.gymtrack_url is not None:
         set_setting("GYMTRACK_URL", payload.gymtrack_url)
     return get_settings()
