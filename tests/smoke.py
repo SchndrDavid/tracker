@@ -565,10 +565,76 @@ def main_test():
     assert any("Lanterns" in t for t in titles)
     assert any("Supergirl" in t for t in titles)
 
+    # ---------------------------------------------------------------------
+    # 12. Game Database Search (Steam Fallback & RAWG) & Non-Steam Multi-Game Logging
+    # ---------------------------------------------------------------------
+    print_section("12. Game Database Search & Non-Steam Multi-Game Logging")
+    multi_game_date = "2026-09-13"
+
+    # 12a. Test Game Search with zero keys (Steam Storefront fallback)
+    r_search = client.get("/api/games/search?q=portal")
+    print(f"GET /api/games/search?q=portal -> HTTP {r_search.status_code}")
+    assert r_search.status_code == 200
+    search_data = r_search.json()
+    assert "items" in search_data
+    assert search_data["source"] in ("steam", "rawg")
+    print(f"Game search found {len(search_data['items'])} items (source: {search_data['source']})")
+    if search_data["items"]:
+        first_item = search_data["items"][0]
+        print(f"First result: {first_item.get('name')} (id: {first_item.get('id')})")
+        assert "header_url" in first_item
+        assert "name" in first_item
+
+    # 12b. Settings endpoint with RAWG API Key
+    r_rawg_settings = client.post("/api/settings", json={
+        "rawg_api_key": "testrawgapikey123456"
+    })
+    assert r_rawg_settings.status_code == 200
+    assert r_rawg_settings.json()["rawg_configured"] is True
+    assert "test...3456" in r_rawg_settings.json()["rawg_api_key_masked"]
+
+    # 12c. Log multiple non-Steam games on the same date (e.g. World of Warcraft and Fortnite)
+    # Neither has an appid (or appid=0). Verify they get distinct synthetic appids and do NOT overwrite each other.
+    r_wow = client.post("/api/steam/play", json={
+        "date": multi_game_date,
+        "name": "World of Warcraft",
+        "minutes": 120,
+        "appid": 0,
+        "header_url": "https://images.example.com/wow.jpg"
+    })
+    print(f"POST /api/steam/play (WoW) -> HTTP {r_wow.status_code} appid={r_wow.json()['appid']}")
+    assert r_wow.status_code == 201
+    wow_appid = r_wow.json()["appid"]
+    assert wow_appid > 0
+
+    r_fortnite = client.post("/api/steam/play", json={
+        "date": multi_game_date,
+        "name": "Fortnite",
+        "minutes": 60,
+        "appid": None,
+        "header_url": "https://images.example.com/fortnite.jpg"
+    })
+    print(f"POST /api/steam/play (Fortnite) -> HTTP {r_fortnite.status_code} appid={r_fortnite.json()['appid']}")
+    assert r_fortnite.status_code == 201
+    fortnite_appid = r_fortnite.json()["appid"]
+    assert fortnite_appid > 0
+    assert wow_appid != fortnite_appid, "Synthetic appids for different games must not collide!"
+
+    # 12d. Verify both games coexist on multi_game_date in GET /api/day/{date}
+    r_day_multi = client.get(f"/api/day/{multi_game_date}")
+    assert r_day_multi.status_code == 200
+    multi_games = r_day_multi.json().get("steam_games", [])
+    print(f"GET /api/day/{multi_game_date} -> {len(multi_games)} games logged")
+    assert len(multi_games) == 2
+    game_names = {g["name"] for g in multi_games}
+    assert "World of Warcraft" in game_names
+    assert "Fortnite" in game_names
+
     print("\n" + "=" * 70)
     print("ALL VERIFICATION REQUIREMENTS SUCCESSFULLY PASSED!")
     print("=" * 70)
 
 if __name__ == "__main__":
     main_test()
+
 

@@ -823,6 +823,33 @@
       color: #fff;
     }
 
+    /* Game Search Results in Modal */
+    .game-search-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .game-search-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--border-focus);
+    }
+
+    .game-search-thumb {
+      width: 56px;
+      height: 34px;
+      object-fit: cover;
+      border-radius: 3px;
+      background: #000;
+      flex-shrink: 0;
+    }
+
     /* GymTrack Workouts Section & Cards */
     .gymtrack-list {
       display: grid;
@@ -1703,19 +1730,46 @@
 
   <!-- Manual Game Modal -->
   <div id="manual-game-modal" class="modal-backdrop">
-    <div class="modal-card">
-      <h3 class="modal-title">Log Played Game</h3>
+    <div class="modal-card" style="max-width: 480px;">
+      <h3 class="modal-title">🎮 Log Played Game</h3>
+      <p style="font-size: 12px; color: var(--text-dim); margin-top: -6px; margin-bottom: 8px;">
+        Search game (Steam / RAWG) or enter custom title.
+      </p>
+
       <div class="form-group">
-        <label class="form-label" for="manual-game-name">Game Name</label>
-        <input type="text" id="manual-game-name" class="form-control" placeholder="e.g. Counter-Strike 2">
+        <label class="form-label" for="manual-game-search">Game Title / Search</label>
+        <input type="text" id="manual-game-search" class="form-control" placeholder="Search e.g. World of Warcraft, Witcher, Cyberpunk..." oninput="onGameSearchInput()">
       </div>
+
+      <!-- Live Search Results Dropdown/List -->
+      <div id="game-search-results" style="display: none; max-height: 200px; overflow-y: auto; flex-direction: column; gap: 6px; margin-bottom: 10px;"></div>
+
+      <!-- Selected Game Preview Card -->
+      <div id="game-selected-preview" style="display: none; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-focus); border-radius: var(--radius-md); padding: 10px; margin-bottom: 12px; align-items: center; gap: 12px;">
+        <img id="game-preview-img" style="width: 70px; height: 42px; object-fit: cover; border-radius: 4px; background: #000;" src="" alt="" onerror="this.style.display='none'">
+        <div style="flex: 1; overflow: hidden;">
+          <div id="game-preview-name" style="font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+          <div id="game-preview-sub" style="font-size: 11px; color: var(--text-muted);">Selected game</div>
+        </div>
+        <button type="button" class="watched-delete-btn" onclick="clearSelectedGame()" title="Clear selection">✕</button>
+      </div>
+
       <div class="form-group">
-        <label class="form-label" for="manual-game-minutes">Minutes Played</label>
-        <input type="number" id="manual-game-minutes" class="form-control" placeholder="60" min="1">
+        <label class="form-label" for="manual-game-minutes">Played Duration</label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="number" id="manual-game-minutes" class="form-control" placeholder="Minutes (e.g. 90)" min="1" style="flex: 1;">
+          <div style="display: flex; gap: 4px;">
+            <button type="button" class="btn-pill" style="font-size: 11px; padding: 6px 9px;" onclick="setGameMinutes(30)">30m</button>
+            <button type="button" class="btn-pill" style="font-size: 11px; padding: 6px 9px;" onclick="setGameMinutes(60)">1h</button>
+            <button type="button" class="btn-pill" style="font-size: 11px; padding: 6px 9px;" onclick="setGameMinutes(90)">1.5h</button>
+            <button type="button" class="btn-pill" style="font-size: 11px; padding: 6px 9px;" onclick="setGameMinutes(120)">2h</button>
+          </div>
+        </div>
       </div>
+
       <div class="modal-actions">
         <button class="btn-secondary" onclick="closeManualGameModal()">Cancel</button>
-        <button class="btn-primary" onclick="saveManualGame()">Add Game</button>
+        <button class="btn-primary" onclick="saveManualGame()">Save Game</button>
       </div>
     </div>
   </div>
@@ -1740,6 +1794,20 @@
         <div class="form-group" style="margin-bottom: 0;">
           <label class="form-label" for="settings-steam-id" style="font-size: 11px;">SteamID64</label>
           <input type="text" id="settings-steam-id" class="form-control" placeholder="76561198...">
+        </div>
+      </div>
+
+      <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px; margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <strong style="font-size: 13px;">🌐 RAWG Games Database</strong>
+          <span id="settings-rawg-status" class="pill-next-day" style="font-size: 10px;">Checking...</span>
+        </div>
+        <p style="font-size: 11px; color: var(--text-dim); margin-top: -4px; margin-bottom: 8px;">
+          Enables searching 500k+ games across all platforms (WoW, Battle.net, Epic, etc.). Free key at <a href="https://rawg.io/apidocs" target="_blank" style="color: var(--tag-work); text-decoration: underline;">rawg.io/apidocs</a>. Without a key, Steam catalog is used.
+        </p>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="settings-rawg-key" style="font-size: 11px;">RAWG API Key</label>
+          <input type="password" id="settings-rawg-key" class="form-control" placeholder="RAWG API Key (optional)">
         </div>
       </div>
 
@@ -1802,7 +1870,9 @@
       modalSelectedTag: "Work",
       needsTimeBlocks: [],
       noteSaveTimeout: null,
-      jfSearchTimeout: null
+      jfSearchTimeout: null,
+      selectedGame: null,
+      gameSearchTimeout: null
     };
 
     // -------------------------------------------------------------------
@@ -3051,23 +3121,110 @@
       showToast(`Ready to place "${gameName}" (${formatMinutes(minutes)}) on timeline`);
     }
 
-    // Manual Game Modal
+    // Manual Game Modal & Game Search
+    function setGameMinutes(mins) {
+      document.getElementById('manual-game-minutes').value = mins;
+    }
+
     function openManualGameModal() {
-      document.getElementById('manual-game-name').value = '';
+      STATE.selectedGame = null;
+      document.getElementById('manual-game-search').value = '';
       document.getElementById('manual-game-minutes').value = '60';
+      document.getElementById('game-search-results').innerHTML = '';
+      document.getElementById('game-search-results').style.display = 'none';
+      document.getElementById('game-selected-preview').style.display = 'none';
       document.getElementById('manual-game-modal').classList.add('open');
-      document.getElementById('manual-game-name').focus();
+      document.getElementById('manual-game-search').focus();
     }
 
     function closeManualGameModal() {
       document.getElementById('manual-game-modal').classList.remove('open');
     }
 
+    function clearSelectedGame() {
+      STATE.selectedGame = null;
+      document.getElementById('game-selected-preview').style.display = 'none';
+      document.getElementById('manual-game-search').value = '';
+      document.getElementById('manual-game-search').focus();
+    }
+
+    function selectSearchedGame(game) {
+      STATE.selectedGame = game;
+      document.getElementById('game-search-results').style.display = 'none';
+      document.getElementById('manual-game-search').value = game.name;
+
+      const previewEl = document.getElementById('game-selected-preview');
+      const imgEl = document.getElementById('game-preview-img');
+      const nameEl = document.getElementById('game-preview-name');
+      const subEl = document.getElementById('game-preview-sub');
+
+      if (game.header_url) {
+        imgEl.src = game.header_url;
+        imgEl.style.display = 'block';
+      } else {
+        imgEl.style.display = 'none';
+      }
+      nameEl.innerText = game.name;
+      subEl.innerText = game.released ? `Released: ${game.released} • ${game.source.toUpperCase()}` : `${game.source.toUpperCase()}`;
+      previewEl.style.display = 'flex';
+
+      document.getElementById('manual-game-minutes').focus();
+    }
+
+    function onGameSearchInput() {
+      const q = document.getElementById('manual-game-search').value.trim();
+      const resultsEl = document.getElementById('game-search-results');
+      clearTimeout(STATE.gameSearchTimeout);
+
+      if (q.length < 2) {
+        resultsEl.innerHTML = '';
+        resultsEl.style.display = 'none';
+        return;
+      }
+
+      STATE.gameSearchTimeout = setTimeout(async () => {
+        try {
+          const res = await apiRequest(`/api/games/search?q=${encodeURIComponent(q)}`);
+          resultsEl.innerHTML = '';
+          if (!res.items || res.items.length === 0) {
+            resultsEl.innerHTML = '<div style="font-size: 12px; color: var(--text-dim); padding: 6px;">No games found. You can still enter title manually.</div>';
+            resultsEl.style.display = 'flex';
+            return;
+          }
+
+          for (const item of res.items) {
+            const row = document.createElement('div');
+            row.className = 'game-search-item';
+            const thumb = item.header_url
+              ? `<img class="game-search-thumb" src="${escapeHtml(item.header_url)}" alt="" onerror="this.style.display='none'">`
+              : `<div class="game-search-thumb" style="display: flex; align-items: center; justify-content: center; font-size: 14px;">🎮</div>`;
+
+            row.innerHTML = `
+              ${thumb}
+              <div style="flex: 1; overflow: hidden;">
+                <div style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.name)}</div>
+                <div style="font-size: 11px; color: var(--text-muted);">${item.released ? item.released + ' • ' : ''}${escapeHtml(item.source.toUpperCase())}</div>
+              </div>
+              <span style="font-size: 11px; color: var(--tag-work);">Select</span>
+            `;
+            row.onclick = () => selectSearchedGame(item);
+            resultsEl.appendChild(row);
+          }
+          resultsEl.style.display = 'flex';
+        } catch (e) {
+          resultsEl.style.display = 'none';
+        }
+      }, 250);
+    }
+
     async function saveManualGame() {
-      const name = document.getElementById('manual-game-name').value.trim();
+      const searchVal = document.getElementById('manual-game-search').value.trim();
+      const game = STATE.selectedGame;
+      const name = game ? game.name : searchVal;
       const minutes = parseInt(document.getElementById('manual-game-minutes').value, 10);
+
       if (!name) {
-        showToast('Please enter game name');
+        showToast('Please enter or select a game');
         return;
       }
       if (isNaN(minutes) || minutes <= 0) {
@@ -3075,17 +3232,23 @@
         return;
       }
 
+      const payload = {
+        date: STATE.currentDate,
+        name,
+        minutes
+      };
+      if (game) {
+        if (game.id) payload.appid = game.id;
+        if (game.header_url) payload.header_url = game.header_url;
+      }
+
       try {
         await apiRequest('/api/steam/play', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            date: STATE.currentDate,
-            name,
-            minutes
-          })
+          body: JSON.stringify(payload)
         });
-        showToast(`Added "${name}"`);
+        showToast(`Logged "${name}" (${formatMinutes(minutes)})`);
         closeManualGameModal();
         loadDay(STATE.currentDate);
       } catch (err) {
@@ -3101,6 +3264,7 @@
       try {
         const conf = await apiRequest('/api/settings');
         const stStatus = document.getElementById('settings-steam-status');
+        const rawgStatus = document.getElementById('settings-rawg-status');
         const jfStatus = document.getElementById('settings-jellyfin-status');
 
         if (conf.steam_configured) {
@@ -3111,6 +3275,18 @@
           stStatus.innerText = 'Not Configured';
           stStatus.style.borderColor = 'rgba(239, 68, 68, 0.4)';
           stStatus.style.color = '#f87171';
+        }
+
+        if (rawgStatus) {
+          if (conf.rawg_configured) {
+            rawgStatus.innerText = 'Connected';
+            rawgStatus.style.borderColor = 'rgba(52, 211, 153, 0.5)';
+            rawgStatus.style.color = '#34d399';
+          } else {
+            rawgStatus.innerText = 'Steam catalog fallback';
+            rawgStatus.style.borderColor = 'rgba(100, 116, 139, 0.4)';
+            rawgStatus.style.color = 'var(--text-muted)';
+          }
         }
 
         if (conf.jellyfin_configured) {
@@ -3128,6 +3304,9 @@
         }
         if (conf.steam_api_key_masked) {
           document.getElementById('settings-steam-key').placeholder = conf.steam_api_key_masked;
+        }
+        if (conf.rawg_api_key_masked) {
+          document.getElementById('settings-rawg-key').placeholder = conf.rawg_api_key_masked;
         }
         if (conf.jellyfin_url) {
           document.getElementById('settings-jellyfin-url').value = conf.jellyfin_url;
@@ -3159,6 +3338,7 @@
     async function saveSettings() {
       const steamKey = document.getElementById('settings-steam-key').value.trim();
       const steamId = document.getElementById('settings-steam-id').value.trim();
+      const rawgKey = document.getElementById('settings-rawg-key').value.trim();
       const jfUrl = document.getElementById('settings-jellyfin-url').value.trim();
       const jfKey = document.getElementById('settings-jellyfin-key').value.trim();
       const jfUserSelect = document.getElementById('settings-jellyfin-user');
@@ -3167,6 +3347,7 @@
       const payload = {};
       if (steamKey) payload.steam_api_key = steamKey;
       if (steamId) payload.steam_id = steamId;
+      if (rawgKey) payload.rawg_api_key = rawgKey;
       if (jfUrl) payload.jellyfin_url = jfUrl;
       if (jfKey) payload.jellyfin_api_key = jfKey;
       if (jfUser !== undefined) payload.jellyfin_user_id = jfUser;

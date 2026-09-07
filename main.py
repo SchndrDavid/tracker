@@ -296,6 +296,7 @@ class SteamPlayCreateRequest(BaseModel):
 class SettingsUpdateRequest(BaseModel):
     steam_api_key: Optional[str] = None
     steam_id: Optional[str] = None
+    rawg_api_key: Optional[str] = None
     jellyfin_api_key: Optional[str] = None
     jellyfin_url: Optional[str] = None
     jellyfin_user_id: Optional[str] = None
@@ -1212,8 +1213,13 @@ def add_steam_play(payload: SteamPlayCreateRequest):
     if payload.minutes <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Minutes must be greater than 0")
 
+    clean_name = payload.name.strip()
     appid = payload.appid or 0
-    header_url = payload.header_url or (f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/header.jpg" if appid else None)
+    if appid <= 0:
+        # Generate a stable non-zero synthetic ID from name so non-steam games don't collide
+        appid = (abs(hash(clean_name.lower())) % 800000000) + 100000000
+
+    header_url = payload.header_url or (f"https://cdn.akamai.steamstatic.com/steam/apps/{payload.appid}/header.jpg" if payload.appid and payload.appid > 0 else None)
 
     conn = get_db()
     try:
@@ -1224,9 +1230,9 @@ def add_steam_play(payload: SteamPlayCreateRequest):
             ON CONFLICT(date, appid) DO UPDATE SET
                 minutes = minutes + excluded.minutes,
                 name = excluded.name,
-                icon_url = excluded.icon_url,
-                header_url = excluded.header_url
-            """, (vdate, appid, payload.name.strip(), payload.minutes, payload.minutes, payload.icon_url, header_url, json.dumps({})))
+                icon_url = COALESCE(excluded.icon_url, steam_plays.icon_url),
+                header_url = COALESCE(excluded.header_url, steam_plays.header_url)
+            """, (vdate, appid, clean_name, payload.minutes, payload.minutes, payload.icon_url, header_url, json.dumps({})))
             row_id = cursor.lastrowid
 
         row = conn.execute("SELECT * FROM steam_plays WHERE id = ?", (row_id,)).fetchone()
@@ -1259,6 +1265,71 @@ def delete_steam_play(play_id: int):
         conn.close()
 
 # -------------------------------------------------------------------------
+# Game Search Endpoint (RAWG Video Games Database with Steam Store Fallback)
+# -------------------------------------------------------------------------
+
+@app.get("/api/games/search")
+async def search_games(q: str = Query(..., min_length=1)):
+    query = q.strip()
+    rawg_key = get_setting("RAWG_API_KEY", "")
+
+    # 1. If RAWG key is configured, query RAWG (all platforms including Battle.net, Epic, PlayStation, etc.)
+    if rawg_key:
+        target_url = "https://api.rawg.io/api/games"
+        params = {
+            "key": rawg_key,
+            "search": query,
+            "page_size": 10
+        }
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                resp = await client.get(target_url, params=params)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    items = []
+                    for it in data.get("results", []):
+                        g_id = it.get("id") or 0
+                        items.append({
+                            "id": g_id,
+                            "name": it.get("name"),
+                            "header_url": it.get("background_image"),
+                            "released": it.get("released", "")[:4] if it.get("released") else "",
+                            "source": "rawg"
+                        })
+                    if items:
+                        return {"items": items, "source": "rawg"}
+        except httpx.RequestError:
+            pass  # Fallback to Steam store search
+
+    # 2. Zero-key Fallback: Steam Store Search (no API key required)
+    target_url = "https://store.steampowered.com/api/storesearch/"
+    params = {
+        "term": query,
+        "l": "english",
+        "cc": "US"
+    }
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(target_url, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                items = []
+                for it in data.get("items", []):
+                    appid = it.get("id")
+                    items.append({
+                        "id": appid,
+                        "name": it.get("name"),
+                        "header_url": f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/header.jpg",
+                        "released": "",
+                        "source": "steam"
+                    })
+                return {"items": items, "source": "steam"}
+    except httpx.RequestError:
+        pass
+
+    return {"items": [], "source": "none"}
+
+# -------------------------------------------------------------------------
 # Settings API Endpoints
 # -------------------------------------------------------------------------
 
@@ -1266,6 +1337,7 @@ def delete_steam_play(play_id: int):
 def get_settings():
     steam_key = get_setting("STEAM_API_KEY", "")
     steam_id = get_setting("STEAM_ID", "")
+    rawg_key = get_setting("RAWG_API_KEY", "")
     jf_key = get_setting("JELLYFIN_API_KEY", "")
     jf_url = get_setting("JELLYFIN_URL", "http://jellyfin:8096")
     jf_user = get_setting("JELLYFIN_USER_ID", "")
@@ -1275,6 +1347,8 @@ def get_settings():
         "steam_configured": bool(steam_key and steam_id),
         "steam_id": steam_id,
         "steam_api_key_masked": f"{steam_key[:4]}...{steam_key[-4:]}" if len(steam_key) >= 8 else ("configured" if steam_key else ""),
+        "rawg_configured": bool(rawg_key),
+        "rawg_api_key_masked": f"{rawg_key[:4]}...{rawg_key[-4:]}" if len(rawg_key) >= 8 else ("configured" if rawg_key else ""),
         "jellyfin_configured": bool(jf_key),
         "jellyfin_url": jf_url,
         "jellyfin_user_id": jf_user,
@@ -1287,6 +1361,8 @@ def update_settings(payload: SettingsUpdateRequest):
         set_setting("STEAM_API_KEY", payload.steam_api_key)
     if payload.steam_id is not None:
         set_setting("STEAM_ID", payload.steam_id)
+    if payload.rawg_api_key is not None:
+        set_setting("RAWG_API_KEY", payload.rawg_api_key)
     if payload.jellyfin_api_key is not None:
         set_setting("JELLYFIN_API_KEY", payload.jellyfin_api_key)
     if payload.jellyfin_url is not None:
