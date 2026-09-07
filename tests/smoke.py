@@ -81,7 +81,7 @@ def main_test():
     print_section("1. SQLite Schema Verification (PRAGMA table_info)")
     conn = sqlite3.connect(temp_db_path)
     conn.row_factory = sqlite3.Row
-    for table_name in ["days", "blocks", "watched"]:
+    for table_name in ["days", "blocks", "watched", "steam_plays", "steam_snapshots", "settings"]:
         cols = conn.execute(f"PRAGMA table_info({table_name});").fetchall()
         print(f"\nTable: {table_name}")
         for c in cols:
@@ -429,6 +429,59 @@ def main_test():
     print(f"Late night block -> HTTP {r_late_block.status_code}, duration: {r_late_block.json()['end_min'] - r_late_block.json()['start_min']}m")
     assert r_late_block.status_code == 201
     assert r_late_block.json()["end_min"] == 1530
+
+    # ---------------------------------------------------------------------
+    # 10. Steam Gaming Integration & Settings
+    # ---------------------------------------------------------------------
+    print_section("10. Steam Gaming Integration & Settings")
+    steam_date = "2026-09-12"
+
+    # 10a. Sync without key -> 503
+    r_sync_nokey = client.post("/api/sync/steam")
+    print(f"POST /api/sync/steam (no key) -> HTTP {r_sync_nokey.status_code}")
+    assert r_sync_nokey.status_code == 503
+
+    # 10b. Settings endpoint
+    r_settings = client.post("/api/settings", json={
+        "steam_id": "76561198144801984"
+    })
+    assert r_settings.status_code == 200
+    assert r_settings.json()["steam_id"] == "76561198144801984"
+
+    # 10c. Manual Steam play entry
+    r_play = client.post("/api/steam/play", json={
+        "date": steam_date,
+        "name": "Counter-Strike 2",
+        "minutes": 90,
+        "appid": 730
+    })
+    print(f"POST /api/steam/play -> HTTP {r_play.status_code} {r_play.json()['name']} ({r_play.json()['minutes']}m)")
+    assert r_play.status_code == 201
+    play_id = r_play.json()["id"]
+
+    # 10d. Verify in GET /api/day/{date}
+    r_day_steam = client.get(f"/api/day/{steam_date}")
+    assert r_day_steam.status_code == 200
+    games = r_day_steam.json().get("steam_games", [])
+    print(f"GET /api/day/{steam_date} -> found {len(games)} games")
+    assert len(games) == 1
+    assert games[0]["name"] == "Counter-Strike 2"
+    assert games[0]["minutes"] == 90
+
+    # 10e. Verify in GET /api/stats
+    r_stats_steam = client.get(f"/api/stats?from={steam_date}&to={steam_date}")
+    assert r_stats_steam.status_code == 200
+    steam_stats = r_stats_steam.json().get("steam", {})
+    print(f"GET /api/stats -> Steam total minutes: {steam_stats.get('total_minutes')}")
+    assert steam_stats["total_minutes"] == 90
+    assert len(steam_stats["games"]) == 1
+
+    # 10f. Delete play entry
+    r_del_play = client.delete(f"/api/steam/play/{play_id}")
+    assert r_del_play.status_code == 200
+
+    r_day_steam2 = client.get(f"/api/day/{steam_date}")
+    assert len(r_day_steam2.json().get("steam_games", [])) == 0
 
     print("\n" + "=" * 70)
     print("ALL VERIFICATION REQUIREMENTS SUCCESSFULLY PASSED!")

@@ -710,6 +710,119 @@
       background: rgba(239, 68, 68, 0.1);
     }
 
+    /* Games Section & Cards */
+    .games-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    .game-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .game-card:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(168, 85, 247, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .game-cover-container {
+      width: 100%;
+      height: 105px;
+      background: rgba(0, 0, 0, 0.4);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .game-cover {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      transition: transform 0.3s ease;
+    }
+
+    .game-card:hover .game-cover {
+      transform: scale(1.03);
+    }
+
+    .game-card-body {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .game-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .game-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .game-title {
+      font-family: var(--font-heading);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+
+    .game-playtime {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .game-playtime strong {
+      color: #d8b4fe;
+      font-weight: 600;
+    }
+
+    .game-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: auto;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .btn-add-timeline {
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #d8b4fe;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-add-timeline:hover {
+      background: rgba(168, 85, 247, 0.28);
+      border-color: #c084fc;
+      color: #fff;
+    }
+
     /* Stats Screen Styles */
     .stats-header {
       display: flex;
@@ -1211,9 +1324,11 @@
             <button class="btn-pill" onclick="goToToday()">Today</button>
           </div>
 
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="btn-pill" onclick="openAddBlockModal()">+ Add Block</button>
-            <button class="btn-pill" onclick="triggerGymTrackSync()" title="Sync workouts from GymTrack">⚡ Sync GymTrack</button>
+            <button class="btn-pill" onclick="triggerGymTrackSync()" title="Sync workouts from GymTrack">⚡ GymTrack</button>
+            <button class="btn-pill" onclick="triggerSteamSync()" title="Sync played games from Steam">🎮 Steam</button>
+            <button class="btn-pill" onclick="openSettingsModal()" title="Configure integrations & API keys">⚙ Settings</button>
           </div>
         </div>
 
@@ -1304,6 +1419,25 @@
 
         <div class="watched-list" id="watched-list">
           <!-- Populated by JS -->
+      </div>
+
+      <!-- Games Section (Steam Integration) -->
+      <div class="glass-panel games-section" style="margin-top: 14px;">
+        <div class="section-title-row">
+          <div>
+            <h3>🎮 Games Played Today</h3>
+            <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">
+              Recorded via Steam sync or logged manually. Click "+ Add to Timeline" to place on schedule.
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-pill" onclick="triggerSteamSync()" title="Sync recently played games from Steam">⚡ Sync Steam</button>
+            <button class="btn-pill" onclick="openManualGameModal()">+ Add Manually</button>
+          </div>
+        </div>
+
+        <div class="games-list" id="games-list">
+          <!-- Populated by JS -->
         </div>
       </div>
 
@@ -1387,6 +1521,21 @@
             </div>
           </div>
           <div id="watched-stats-list">
+            <!-- Rendered via JS -->
+        </div>
+
+        <!-- Steam Gaming in Period Overview -->
+        <div class="watched-stats-wrap" style="margin-top: 24px;">
+          <div class="section-title-row">
+            <div>
+              <h3 style="font-size: 15px;">🎮 Steam Games Played in this Period</h3>
+              <p style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">Aggregated playtime recorded from Steam.</p>
+            </div>
+            <div style="display: flex; gap: 10px; font-size: 13px; color: var(--text-muted);" id="steam-totals-badge">
+              <!-- Counts -->
+            </div>
+          </div>
+          <div class="games-list" id="steam-stats-list">
             <!-- Rendered via JS -->
           </div>
         </div>
@@ -1487,6 +1636,70 @@
       <div class="modal-actions">
         <button class="btn-secondary" onclick="closeManualWatchedModal()">Cancel</button>
         <button class="btn-primary" onclick="saveManualWatched()">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual Game Modal -->
+  <div id="manual-game-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <h3 class="modal-title">Log Played Game</h3>
+      <div class="form-group">
+        <label class="form-label" for="manual-game-name">Game Name</label>
+        <input type="text" id="manual-game-name" class="form-control" placeholder="e.g. Counter-Strike 2">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="manual-game-minutes">Minutes Played</label>
+        <input type="number" id="manual-game-minutes" class="form-control" placeholder="60" min="1">
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeManualGameModal()">Cancel</button>
+        <button class="btn-primary" onclick="saveManualGame()">Add Game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 480px;">
+      <h3 class="modal-title">⚙ Integrations & Settings</h3>
+      <p style="font-size: 12px; color: var(--text-dim); margin-top: -6px; margin-bottom: 14px;">
+        Saved directly to persistent database.
+      </p>
+
+      <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px; margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <strong style="font-size: 13px;">🎮 Steam Gaming</strong>
+          <span id="settings-steam-status" class="pill-next-day" style="font-size: 10px;">Checking...</span>
+        </div>
+        <div class="form-group" style="margin-bottom: 8px;">
+          <label class="form-label" for="settings-steam-key" style="font-size: 11px;">Steam Web API Key</label>
+          <input type="password" id="settings-steam-key" class="form-control" placeholder="32-character key">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="settings-steam-id" style="font-size: 11px;">SteamID64</label>
+          <input type="text" id="settings-steam-id" class="form-control" placeholder="76561198...">
+        </div>
+      </div>
+
+      <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px; margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <strong style="font-size: 13px;">🎬 Jellyfin Media</strong>
+          <span id="settings-jellyfin-status" class="pill-next-day" style="font-size: 10px;">Checking...</span>
+        </div>
+        <div class="form-group" style="margin-bottom: 8px;">
+          <label class="form-label" for="settings-jellyfin-url" style="font-size: 11px;">Jellyfin URL</label>
+          <input type="text" id="settings-jellyfin-url" class="form-control" placeholder="http://jellyfin:8096">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="settings-jellyfin-key" style="font-size: 11px;">Jellyfin API Token</label>
+          <input type="password" id="settings-jellyfin-key" class="form-control" placeholder="API token">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeSettingsModal()">Close</button>
+        <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
       </div>
     </div>
   </div>
@@ -1646,6 +1859,9 @@
 
         // Load watched titles
         loadWatched(dateStr);
+
+        // Render Steam games
+        renderSteamGames(data.steam_games || []);
 
         // Check if day has gymtrack blocks; if none, attempt silent auto-sync
         const hasGymTrack = data.blocks.some(b => b.source === 'gymtrack');
@@ -2604,6 +2820,241 @@
         }
       } catch (err) {
         // Silent fail as required: GymTrack being unreachable must not interrupt normal app operation
+    // -------------------------------------------------------------------
+    // Steam Gaming Management
+    // -------------------------------------------------------------------
+    function renderSteamGames(games) {
+      const listEl = document.getElementById('games-list');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      if (!games || games.length === 0) {
+        listEl.innerHTML = '<p style="font-size: 13px; color: var(--text-dim); grid-column: 1 / -1;">No games recorded for today. Click "⚡ Sync Steam" or "+ Add Manually".</p>';
+        return;
+      }
+
+      for (const game of games) {
+        const card = document.createElement('div');
+        card.className = 'game-card';
+
+        const coverHtml = game.header_url
+          ? `<div class="game-cover-container"><img class="game-cover" src="${escapeHtml(game.header_url)}" alt="${escapeHtml(game.name)}" onerror="this.parentElement.style.display='none'"></div>`
+          : '';
+
+        const iconHtml = game.icon_url
+          ? `<img class="game-icon" src="${escapeHtml(game.icon_url)}" alt="" onerror="this.style.display='none'">`
+          : '<span style="font-size: 16px;">🎮</span>';
+
+        card.innerHTML = `
+          ${coverHtml}
+          <div class="game-card-body">
+            <div class="game-title-row">
+              ${iconHtml}
+              <span class="game-title" title="${escapeHtml(game.name)}">${escapeHtml(game.name)}</span>
+            </div>
+            <div class="game-playtime">Played today: <strong>${formatMinutes(game.minutes)}</strong></div>
+            <div class="game-card-footer">
+              <button class="btn-add-timeline" onclick="addGameToTimeline('${escapeHtml(game.name)}', ${game.minutes})" title="Place on timeline as Gaming activity">+ Add to Timeline</button>
+              <button class="watched-delete-btn" onclick="deleteGamePlay(${game.id})" title="Delete entry">✕</button>
+            </div>
+          </div>
+        `;
+        listEl.appendChild(card);
+      }
+    }
+
+    async function deleteGamePlay(id) {
+      try {
+        await apiRequest(`/api/steam/play/${id}`, { method: 'DELETE' });
+        showToast('Game entry removed');
+        loadDay(STATE.currentDate);
+      } catch (err) {
+        showToast(`Failed to remove: ${err.message}`);
+      }
+    }
+
+    async function triggerSteamSync() {
+      showToast('Syncing Steam playtime...');
+      try {
+        const res = await apiRequest('/api/sync/steam', { method: 'POST' });
+        showToast(`Steam synced: ${res.synced_games} games checked (${res.updated_today} played today)`);
+        loadDay(STATE.currentDate);
+      } catch (err) {
+        if (err.message && err.message.includes('not configured')) {
+          showToast('Steam not configured. Opening Settings...');
+          openSettingsModal();
+        } else {
+          showToast(`Steam sync failed: ${err.message}`);
+        }
+      }
+    }
+
+    function addGameToTimeline(gameName, minutes) {
+      const bounds = getTimelineBounds(STATE.dayData);
+      let s = bounds.startHour * 60 + 60;
+      if (STATE.dayData && STATE.dayData.blocks && STATE.dayData.blocks.length > 0) {
+        const maxEnd = Math.max(...STATE.dayData.blocks.map(b => b.end_min));
+        if (maxEnd > 0 && maxEnd < bounds.endHour * 60) {
+          s = maxEnd;
+        }
+      }
+      let e = s + minutes;
+
+      openAddBlockModal(s, e);
+      document.getElementById('block-label-input').value = gameName;
+      selectModalTag('Gaming');
+      showToast(`Ready to place "${gameName}" (${formatMinutes(minutes)}) on timeline`);
+    }
+
+    // Manual Game Modal
+    function openManualGameModal() {
+      document.getElementById('manual-game-name').value = '';
+      document.getElementById('manual-game-minutes').value = '60';
+      document.getElementById('manual-game-modal').classList.add('open');
+      document.getElementById('manual-game-name').focus();
+    }
+
+    function closeManualGameModal() {
+      document.getElementById('manual-game-modal').classList.remove('open');
+    }
+
+    async function saveManualGame() {
+      const name = document.getElementById('manual-game-name').value.trim();
+      const minutes = parseInt(document.getElementById('manual-game-minutes').value, 10);
+      if (!name) {
+        showToast('Please enter game name');
+        return;
+      }
+      if (isNaN(minutes) || minutes <= 0) {
+        showToast('Please enter valid minutes');
+        return;
+      }
+
+      try {
+        await apiRequest('/api/steam/play', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: STATE.currentDate,
+            name,
+            minutes
+          })
+        });
+        showToast(`Added "${name}"`);
+        closeManualGameModal();
+        loadDay(STATE.currentDate);
+      } catch (err) {
+        showToast(`Save failed: ${err.message}`);
+      }
+    }
+
+    // -------------------------------------------------------------------
+    // Settings Modal
+    // -------------------------------------------------------------------
+    async function openSettingsModal() {
+      document.getElementById('settings-modal').classList.add('open');
+      try {
+        const conf = await apiRequest('/api/settings');
+        const stStatus = document.getElementById('settings-steam-status');
+        const jfStatus = document.getElementById('settings-jellyfin-status');
+
+        if (conf.steam_configured) {
+          stStatus.innerText = 'Connected';
+          stStatus.style.borderColor = 'rgba(52, 211, 153, 0.5)';
+          stStatus.style.color = '#34d399';
+        } else {
+          stStatus.innerText = 'Not Configured';
+          stStatus.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+          stStatus.style.color = '#f87171';
+        }
+
+        if (conf.jellyfin_configured) {
+          jfStatus.innerText = 'Connected';
+          jfStatus.style.borderColor = 'rgba(52, 211, 153, 0.5)';
+          jfStatus.style.color = '#34d399';
+        } else {
+          jfStatus.innerText = 'Not Configured';
+          jfStatus.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+          jfStatus.style.color = '#f87171';
+        }
+
+        if (conf.steam_id) {
+          document.getElementById('settings-steam-id').value = conf.steam_id;
+        }
+        if (conf.steam_api_key_masked) {
+          document.getElementById('settings-steam-key').placeholder = conf.steam_api_key_masked;
+        }
+        if (conf.jellyfin_url) {
+          document.getElementById('settings-jellyfin-url').value = conf.jellyfin_url;
+        }
+      } catch (e) {}
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').classList.remove('open');
+    }
+
+    async function saveSettings() {
+      const steamKey = document.getElementById('settings-steam-key').value.trim();
+      const steamId = document.getElementById('settings-steam-id').value.trim();
+      const jfUrl = document.getElementById('settings-jellyfin-url').value.trim();
+      const jfKey = document.getElementById('settings-jellyfin-key').value.trim();
+
+      const payload = {};
+      if (steamKey) payload.steam_api_key = steamKey;
+      if (steamId) payload.steam_id = steamId;
+      if (jfUrl) payload.jellyfin_url = jfUrl;
+      if (jfKey) payload.jellyfin_api_key = jfKey;
+
+      try {
+        await apiRequest('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        showToast('Settings saved');
+        closeSettingsModal();
+      } catch (err) {
+        showToast(`Failed to save settings: ${err.message}`);
+      }
+    }
+
+    function renderSteamStats(steam) {
+      const badge = document.getElementById('steam-totals-badge');
+      const list = document.getElementById('steam-stats-list');
+      if (!badge || !list) return;
+      list.innerHTML = '';
+
+      badge.innerHTML = `<span>Total Playtime: <strong>${formatMinutes(steam.total_minutes || 0)}</strong></span>`;
+
+      if (!steam.games || steam.games.length === 0) {
+        list.innerHTML = '<p style="font-size: 13px; color: var(--text-dim); grid-column: 1 / -1;">No game playtime recorded in this period.</p>';
+        return;
+      }
+
+      for (const game of steam.games) {
+        const card = document.createElement('div');
+        card.className = 'game-card';
+
+        const coverHtml = game.header_url
+          ? `<div class="game-cover-container"><img class="game-cover" src="${escapeHtml(game.header_url)}" alt="${escapeHtml(game.name)}" onerror="this.parentElement.style.display='none'"></div>`
+          : '';
+
+        const iconHtml = game.icon_url
+          ? `<img class="game-icon" src="${escapeHtml(game.icon_url)}" alt="" onerror="this.style.display='none'">`
+          : '<span style="font-size: 16px;">🎮</span>';
+
+        card.innerHTML = `
+          ${coverHtml}
+          <div class="game-card-body">
+            <div class="game-title-row">
+              ${iconHtml}
+              <span class="game-title" title="${escapeHtml(game.name)}">${escapeHtml(game.name)}</span>
+            </div>
+            <div class="game-playtime">Total in period: <strong>${formatMinutes(game.minutes)}</strong></div>
+          </div>
+        `;
+        list.appendChild(card);
       }
     }
 
@@ -2684,6 +3135,9 @@
 
         // Watched stats
         renderWatchedStats(data.watched);
+
+        // Steam stats
+        renderSteamStats(data.steam || { total_minutes: 0, games: [] });
 
       } catch (err) {
         showToast(`Failed to load stats: ${err.message}`);

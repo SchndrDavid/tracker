@@ -90,6 +90,69 @@ def init_db():
             );
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_watched_date ON watched(date);")
+
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            """)
+
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS steam_snapshots (
+                appid            INTEGER PRIMARY KEY,
+                name             TEXT NOT NULL,
+                playtime_forever INTEGER NOT NULL,
+                updated_at       TEXT NOT NULL
+            );
+            """)
+
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS steam_plays (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                date             TEXT NOT NULL,
+                appid            INTEGER NOT NULL,
+                name             TEXT NOT NULL,
+                minutes          INTEGER NOT NULL,
+                playtime_forever INTEGER NOT NULL,
+                icon_url         TEXT,
+                header_url       TEXT,
+                meta             TEXT,
+                UNIQUE(date, appid)
+            );
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_steam_plays_date ON steam_plays(date);")
+    finally:
+        conn.close()
+
+# -------------------------------------------------------------------------
+# Settings Helpers
+# -------------------------------------------------------------------------
+
+def get_setting(key: str, default: str = "") -> str:
+    val = os.getenv(key)
+    if val:
+        return val.strip()
+    try:
+        conn = get_db()
+        try:
+            row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+            if row and row["value"]:
+                return row["value"].strip()
+        finally:
+            conn.close()
+    except Exception:
+        pass
+    return default
+
+def set_setting(key: str, value: str):
+    conn = get_db()
+    try:
+        with conn:
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (key, value.strip())
+            )
     finally:
         conn.close()
 
@@ -222,6 +285,21 @@ class WatchedCreateRequest(BaseModel):
     kind: str  # movie | episode | other
     meta: Optional[dict] = None
 
+class SteamPlayCreateRequest(BaseModel):
+    date: str
+    name: str
+    minutes: int
+    appid: Optional[int] = 0
+    icon_url: Optional[str] = None
+    header_url: Optional[str] = None
+
+class SettingsUpdateRequest(BaseModel):
+    steam_api_key: Optional[str] = None
+    steam_id: Optional[str] = None
+    jellyfin_api_key: Optional[str] = None
+    jellyfin_url: Optional[str] = None
+    gymtrack_url: Optional[str] = None
+
 # -------------------------------------------------------------------------
 # Application Lifespan & Initialization
 # -------------------------------------------------------------------------
@@ -274,6 +352,25 @@ def get_day(date: str):
         logged_min = sum(b["end_min"] - b["start_min"] for b in blocks)
         unlogged_min = max(0, awake_min - logged_min)
 
+        steam_rows = conn.execute(
+            "SELECT * FROM steam_plays WHERE date = ? ORDER BY minutes DESC, id ASC",
+            (vdate,)
+        ).fetchall()
+        steam_games = [
+            {
+                "id": r["id"],
+                "date": r["date"],
+                "appid": r["appid"],
+                "name": r["name"],
+                "minutes": r["minutes"],
+                "playtime_forever": r["playtime_forever"],
+                "icon_url": r["icon_url"],
+                "header_url": r["header_url"],
+                "meta": parse_meta(r["meta"])
+            }
+            for r in steam_rows
+        ]
+
         return {
             "date": vdate,
             "wake_time": wake_time,
@@ -282,7 +379,8 @@ def get_day(date: str):
             "awake_time": awake_min,
             "logged_time": logged_min,
             "unlogged_time": unlogged_min,
-            "blocks": blocks
+            "blocks": blocks,
+            "steam_games": steam_games
         }
     finally:
         conn.close()
@@ -533,8 +631,8 @@ def delete_watched(watched_id: int):
 # -------------------------------------------------------------------------
 
 def get_jellyfin_config():
-    url = os.getenv("JELLYFIN_URL", "").rstrip("/")
-    key = os.getenv("JELLYFIN_API_KEY", "").strip()
+    url = get_setting("JELLYFIN_URL", "").rstrip("/")
+    key = get_setting("JELLYFIN_API_KEY", "").strip()
     if not url or not key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -695,7 +793,7 @@ async def sync_gymtrack(
             detail="'from' date cannot be after 'to' date."
         )
 
-    gymtrack_url = os.getenv("GYMTRACK_URL", "").rstrip("/")
+    gymtrack_url = get_setting("GYMTRACK_URL", "").rstrip("/")
     if not gymtrack_url:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -845,6 +943,184 @@ async def sync_gymtrack(
         conn.close()
 
 # -------------------------------------------------------------------------
+# Steam API & Gaming Endpoints
+# -------------------------------------------------------------------------
+
+def get_steam_config():
+    key = get_setting("STEAM_API_KEY", "").strip()
+    steam_id = get_setting("STEAM_ID", "").strip()
+    if not key or not steam_id:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Steam integration is not configured (missing STEAM_API_KEY or STEAM_ID)."
+        )
+    return key, steam_id
+
+@app.post("/api/sync/steam")
+async def sync_steam():
+    key, steam_id = get_steam_config()
+    url = "https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1/"
+    params = {
+        "key": key,
+        "steamid": steam_id,
+        "format": "json"
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, params=params)
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Steam API returned HTTP {resp.status_code}"
+                )
+            data = resp.json()
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Network error connecting to Steam: {exc}"
+        )
+
+    games = data.get("response", {}).get("games", [])
+    today_str = date.today().isoformat()
+    now_iso = datetime.utcnow().isoformat()
+
+    conn = get_db()
+    updated_games = []
+    try:
+        with conn:
+            for g in games:
+                appid = g.get("appid", 0)
+                name = g.get("name", f"App {appid}")
+                playtime_forever = g.get("playtime_forever", 0)
+                img_icon = g.get("img_icon_url", "")
+                icon_url = f"https://media.steampowered.com/steamcommunity/public/images/apps/{appid}/{img_icon}.jpg" if img_icon else None
+                header_url = f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/header.jpg"
+
+                snap = conn.execute("SELECT playtime_forever FROM steam_snapshots WHERE appid = ?", (appid,)).fetchone()
+                if snap is not None:
+                    delta = playtime_forever - snap["playtime_forever"]
+                    if delta > 0:
+                        conn.execute("""
+                        INSERT INTO steam_plays (date, appid, name, minutes, playtime_forever, icon_url, header_url, meta)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(date, appid) DO UPDATE SET
+                            minutes = minutes + excluded.minutes,
+                            playtime_forever = excluded.playtime_forever,
+                            name = excluded.name,
+                            icon_url = excluded.icon_url,
+                            header_url = excluded.header_url
+                        """, (today_str, appid, name, delta, playtime_forever, icon_url, header_url, json.dumps({})))
+                        updated_games.append({"appid": appid, "name": name, "delta_minutes": delta})
+
+                # Always update snapshot
+                conn.execute("""
+                INSERT INTO steam_snapshots (appid, name, playtime_forever, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(appid) DO UPDATE SET
+                    playtime_forever = excluded.playtime_forever,
+                    name = excluded.name,
+                    updated_at = excluded.updated_at
+                """, (appid, name, playtime_forever, now_iso))
+
+        return {
+            "synced_games": len(games),
+            "updated_today": len(updated_games),
+            "games": updated_games
+        }
+    finally:
+        conn.close()
+
+@app.post("/api/steam/play", status_code=status.HTTP_201_CREATED)
+def add_steam_play(payload: SteamPlayCreateRequest):
+    vdate = validate_date(payload.date)
+    if not payload.name or not payload.name.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Game name cannot be empty")
+    if payload.minutes <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Minutes must be greater than 0")
+
+    appid = payload.appid or 0
+    header_url = payload.header_url or (f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/header.jpg" if appid else None)
+
+    conn = get_db()
+    try:
+        with conn:
+            cursor = conn.execute("""
+            INSERT INTO steam_plays (date, appid, name, minutes, playtime_forever, icon_url, header_url, meta)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(date, appid) DO UPDATE SET
+                minutes = minutes + excluded.minutes,
+                name = excluded.name,
+                icon_url = excluded.icon_url,
+                header_url = excluded.header_url
+            """, (vdate, appid, payload.name.strip(), payload.minutes, payload.minutes, payload.icon_url, header_url, json.dumps({})))
+            row_id = cursor.lastrowid
+
+        row = conn.execute("SELECT * FROM steam_plays WHERE id = ?", (row_id,)).fetchone()
+        if not row:
+            row = conn.execute("SELECT * FROM steam_plays WHERE date = ? AND appid = ?", (vdate, appid)).fetchone()
+        return {
+            "id": row["id"],
+            "date": row["date"],
+            "appid": row["appid"],
+            "name": row["name"],
+            "minutes": row["minutes"],
+            "playtime_forever": row["playtime_forever"],
+            "icon_url": row["icon_url"],
+            "header_url": row["header_url"],
+            "meta": parse_meta(row["meta"])
+        }
+    finally:
+        conn.close()
+
+@app.delete("/api/steam/play/{play_id}")
+def delete_steam_play(play_id: int):
+    conn = get_db()
+    try:
+        with conn:
+            cursor = conn.execute("DELETE FROM steam_plays WHERE id = ?", (play_id,))
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Game play record not found")
+        return {"ok": True, "deleted_id": play_id}
+    finally:
+        conn.close()
+
+# -------------------------------------------------------------------------
+# Settings API Endpoints
+# -------------------------------------------------------------------------
+
+@app.get("/api/settings")
+def get_settings():
+    steam_key = get_setting("STEAM_API_KEY", "")
+    steam_id = get_setting("STEAM_ID", "")
+    jf_key = get_setting("JELLYFIN_API_KEY", "")
+    jf_url = get_setting("JELLYFIN_URL", "http://jellyfin:8096")
+    gt_url = get_setting("GYMTRACK_URL", "http://gymtrack:8000")
+
+    return {
+        "steam_configured": bool(steam_key and steam_id),
+        "steam_id": steam_id,
+        "steam_api_key_masked": f"{steam_key[:4]}...{steam_key[-4:]}" if len(steam_key) >= 8 else ("configured" if steam_key else ""),
+        "jellyfin_configured": bool(jf_key),
+        "jellyfin_url": jf_url,
+        "gymtrack_url": gt_url
+    }
+
+@app.post("/api/settings")
+def update_settings(payload: SettingsUpdateRequest):
+    if payload.steam_api_key is not None:
+        set_setting("STEAM_API_KEY", payload.steam_api_key)
+    if payload.steam_id is not None:
+        set_setting("STEAM_ID", payload.steam_id)
+    if payload.jellyfin_api_key is not None:
+        set_setting("JELLYFIN_API_KEY", payload.jellyfin_api_key)
+    if payload.jellyfin_url is not None:
+        set_setting("JELLYFIN_URL", payload.jellyfin_url)
+    if payload.gymtrack_url is not None:
+        set_setting("GYMTRACK_URL", payload.gymtrack_url)
+    return get_settings()
+
+# -------------------------------------------------------------------------
 # Statistics API Endpoint
 # -------------------------------------------------------------------------
 
@@ -991,6 +1267,27 @@ def get_stats(
         series_list = list(series_map.values())
         series_list.sort(key=lambda s: s["episode_count"], reverse=True)
 
+        # 5. Steam plays aggregation
+        steam_play_rows = conn.execute("""
+            SELECT appid, name, icon_url, header_url, SUM(minutes) as total_minutes
+            FROM steam_plays
+            WHERE date >= ? AND date <= ?
+            GROUP BY appid
+            ORDER BY total_minutes DESC
+        """, (vfrom, vto)).fetchall()
+
+        steam_stats_games = [
+            {
+                "appid": r["appid"],
+                "name": r["name"],
+                "minutes": r["total_minutes"],
+                "icon_url": r["icon_url"],
+                "header_url": r["header_url"]
+            }
+            for r in steam_play_rows
+        ]
+        total_steam_mins = sum(g["minutes"] for g in steam_stats_games)
+
         return {
             "period": {"from": vfrom, "to": vto},
             "total_awake_minutes": total_awake_minutes,
@@ -1012,6 +1309,10 @@ def get_stats(
                 "series": series_list,
                 "movies": movies,
                 "other": other_items
+            },
+            "steam": {
+                "total_minutes": total_steam_mins,
+                "games": steam_stats_games
             }
         }
     finally:

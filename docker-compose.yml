@@ -16,6 +16,8 @@ services:
       - JELLYFIN_URL=${JELLYFIN_URL:-}
       - JELLYFIN_API_KEY=${JELLYFIN_API_KEY:-}
       - GYMTRACK_URL=${GYMTRACK_URL:-}
+      - STEAM_API_KEY=${STEAM_API_KEY:-}
+      - STEAM_ID=${STEAM_ID:-}
     healthcheck:
       test:
         - CMD
